@@ -39,18 +39,22 @@ export default function DashboardPage() {
     <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '600px', margin: '0 auto' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <div className="wordmark" style={{ fontSize: '48px' }}>Holler</div>
         <button onClick={handleSignOut} className="btn-ghost">Sign out</button>
       </div>
 
-      <div className="rule-double" style={{ marginBottom: '40px' }} />
+      <div className="star-divider" style={{ marginBottom: '40px' }}>
+        <span style={{ color: 'var(--star)', fontSize: '10px' }}>✦ ✦ ✦</span>
+      </div>
 
       {/* Band card */}
-      <div style={{ marginBottom: '40px' }}>
+      <div style={{ marginBottom: '36px' }}>
         <p className="label" style={{ marginBottom: '14px' }}>Your outfit</p>
         {band ? (
-          <div className="card card-ticket">
+          <div className="card-ornate">
+            <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
+            <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
               <div>
                 <h2 style={{ fontSize: '26px', marginBottom: '6px' }}>{band.name}</h2>
@@ -59,21 +63,25 @@ export default function DashboardPage() {
                 </p>
               </div>
               <span className="label-accent" style={{ fontSize: '9px', border: '1px solid var(--accent-dim)', padding: '4px 8px' }}>
-                Active
+                ✦ Ready
               </span>
             </div>
-            <hr className="rule" style={{ marginBottom: '20px' }} />
-            <button className="btn-primary" style={{ fontSize: '18px' }}>
-              Start tonight's session →
+            <div className="star-divider" style={{ marginBottom: '20px' }}>
+              <span style={{ color: 'var(--border-bright)', fontSize: '8px' }}>✦</span>
+            </div>
+            <button className="btn-primary" style={{ width: '100%' }}>
+              Start tonight's session
             </button>
           </div>
         ) : (
-          <div className="card">
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px', lineHeight: '1.8' }}>
-              Before you can take requests, we need to know who's playing.
+          <div className="card-ornate">
+            <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
+            <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px', lineHeight: '1.9' }}>
+              Before the requests come rollin' in, we need to know who's playing.
             </p>
-            <a href="/setup" className="btn-primary" style={{ textDecoration: 'none', fontSize: '18px' }}>
-              Set up your band →
+            <a href="/setup" className="btn-primary" style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}>
+              Set up your band
             </a>
           </div>
         )}
@@ -83,7 +91,7 @@ export default function DashboardPage() {
       <div>
         <p className="label" style={{ marginBottom: '14px' }}>Past sessions</p>
         <div className="card" style={{ padding: '40px 28px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.06em' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.08em' }}>
             No sessions on the books yet.
           </p>
         </div>
