@@ -4,11 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
-type Band = {
-  id: string
-  name: string
-  slug: string
-}
+type Band = { id: string; name: string; slug: string }
 
 export default function DashboardPage() {
   const [band, setBand] = useState<Band | null>(null)
@@ -19,13 +15,7 @@ export default function DashboardPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/signup'); return }
-
-      const { data } = await supabase
-        .from('bands')
-        .select('id, name, slug')
-        .eq('user_id', user.id)
-        .single()
-
+      const { data } = await supabase.from('bands').select('id, name, slug').eq('user_id', user.id).single()
       setBand(data)
       setLoading(false)
     }
@@ -46,36 +36,44 @@ export default function DashboardPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '640px', margin: '0 auto' }}>
+    <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '600px', margin: '0 auto' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '48px', borderBottom: '1px solid var(--border)', paddingBottom: '24px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: '700' }}>Holler</h1>
-        <button onClick={handleSignOut} className="btn-ghost" style={{ padding: '8px 16px', fontSize: '11px' }}>
-          Sign out
-        </button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
+        <div className="wordmark" style={{ fontSize: '48px' }}>Holler</div>
+        <button onClick={handleSignOut} className="btn-ghost">Sign out</button>
       </div>
 
-      {/* Band section */}
+      <div className="rule-double" style={{ marginBottom: '40px' }} />
+
+      {/* Band card */}
       <div style={{ marginBottom: '40px' }}>
-        <p className="label" style={{ marginBottom: '16px' }}>Your band</p>
+        <p className="label" style={{ marginBottom: '14px' }}>Your outfit</p>
         {band ? (
-          <div className="card">
-            <h2 style={{ fontSize: '24px', marginBottom: '4px' }}>{band.name}</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>
-              holler.live/<span style={{ color: 'var(--accent)' }}>{band.slug}</span>
-            </p>
-            <button className="btn-primary">
-              Start a session
+          <div className="card card-ticket">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '26px', marginBottom: '6px' }}>{band.name}</h2>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  holler.live/<span style={{ color: 'var(--accent)' }}>{band.slug}</span>
+                </p>
+              </div>
+              <span className="label-accent" style={{ fontSize: '9px', border: '1px solid var(--accent-dim)', padding: '4px 8px' }}>
+                Active
+              </span>
+            </div>
+            <hr className="rule" style={{ marginBottom: '20px' }} />
+            <button className="btn-primary" style={{ fontSize: '18px' }}>
+              Start tonight's session →
             </button>
           </div>
         ) : (
           <div className="card">
-            <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '13px' }}>
-              Set up your band profile to start accepting requests.
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px', lineHeight: '1.8' }}>
+              Before you can take requests, we need to know who's playing.
             </p>
-            <a href="/setup" className="btn-primary" style={{ textDecoration: 'none' }}>
-              Set up band profile
+            <a href="/setup" className="btn-primary" style={{ textDecoration: 'none', fontSize: '18px' }}>
+              Set up your band →
             </a>
           </div>
         )}
@@ -83,10 +81,10 @@ export default function DashboardPage() {
 
       {/* Sessions */}
       <div>
-        <p className="label" style={{ marginBottom: '16px' }}>Sessions</p>
-        <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-            {band ? 'No sessions yet. Start one above.' : 'Set up your band profile to start a session.'}
+        <p className="label" style={{ marginBottom: '14px' }}>Past sessions</p>
+        <div className="card" style={{ padding: '40px 28px', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.06em' }}>
+            No sessions on the books yet.
           </p>
         </div>
       </div>
