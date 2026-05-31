@@ -16,34 +16,19 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         <defs>
           <style>{`@import url('https://fonts.googleapis.com/css2?family=Teko:wght@500&display=swap');`}</style>
         </defs>
-        <text
-          x="150" y="60"
-          textAnchor="middle"
-          fontFamily="'Teko', sans-serif"
-          fontSize="60"
-          fontWeight="500"
-          letterSpacing="-1"
-          fill="#c87d22"
-        >
+        <text x="150" y="60" textAnchor="middle" fontFamily="'Teko', sans-serif"
+          fontSize="60" fontWeight="500" letterSpacing="-1" fill="#c87d22">
           HOLLER
         </text>
       </svg>
     )
   }
 
-  // full variant — framed woodblock logo
-  // ViewBox: 520 wide x 270 tall (tighter vertically than before)
   const w = size ?? 480
   const h = Math.round(w * (270 / 520))
 
   return (
-    <svg
-      viewBox="0 0 520 270"
-      width={w}
-      height={h}
-      xmlns="http://www.w3.org/2000/svg"
-      aria-label="Holler"
-    >
+    <svg viewBox="0 0 520 270" width={w} height={h} xmlns="http://www.w3.org/2000/svg" aria-label="Holler">
       <defs>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Teko:wght@500&display=swap');`}</style>
         <pattern id="hatch" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
@@ -62,7 +47,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         <rect x="0"   y="0"   width="28"  height="270" fill="#111009"/>
         <rect x="492" y="0"   width="28"  height="270" fill="#111009"/>
 
-        {/* TOP LARGE diamonds — centered, 20px padding each side, y center=14 */}
+        {/* TOP LARGE */}
         <g fill="#7a5a22">
           <polygon points="20,7 27,14 20,21 13,14"/>
           <polygon points="44,7 51,14 44,21 37,14"/>
@@ -86,7 +71,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
           <polygon points="476,7 483,14 476,21 469,14"/>
           <polygon points="500,7 507,14 500,21 493,14"/>
         </g>
-        {/* TOP SMALL diamonds */}
+        {/* TOP SMALL */}
         <g fill="#3d2c10">
           <polygon points="32,11 35,14 32,17 29,14"/>
           <polygon points="56,11 59,14 56,17 53,14"/>
@@ -110,7 +95,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
           <polygon points="488,11 491,14 488,17 485,14"/>
         </g>
 
-        {/* BOTTOM LARGE diamonds — y center=256 */}
+        {/* BOTTOM LARGE */}
         <g fill="#7a5a22">
           <polygon points="20,249 27,256 20,263 13,256"/>
           <polygon points="44,249 51,256 44,263 37,256"/>
@@ -134,7 +119,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
           <polygon points="476,249 483,256 476,263 469,256"/>
           <polygon points="500,249 507,256 500,263 493,256"/>
         </g>
-        {/* BOTTOM SMALL diamonds */}
+        {/* BOTTOM SMALL */}
         <g fill="#3d2c10">
           <polygon points="32,253 35,256 32,259 29,256"/>
           <polygon points="56,253 59,256 56,259 53,256"/>
@@ -158,48 +143,48 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
           <polygon points="488,253 491,256 488,259 485,256"/>
         </g>
 
-        {/* LEFT LARGE diamonds (cx=14), y: 42,66,90,114,138,162,186,210 */}
+        {/* LEFT LARGE (cx=14) */}
         <g fill="#7a5a22">
-          <polygon points="14,35 21,42 14,49 7,42"/>
-          <polygon points="14,59 21,66 14,73 7,66"/>
-          <polygon points="14,83 21,90 14,97 7,90"/>
-          <polygon points="14,107 21,114 14,121 7,114"/>
-          <polygon points="14,131 21,138 14,145 7,138"/>
-          <polygon points="14,155 21,162 14,169 7,162"/>
-          <polygon points="14,179 21,186 14,193 7,186"/>
-          <polygon points="14,203 21,210 14,217 7,210"/>
+          <polygon points="14,44 21,51 14,58 7,51"/>
+          <polygon points="14,68 21,75 14,82 7,75"/>
+          <polygon points="14,92 21,99 14,106 7,99"/>
+          <polygon points="14,116 21,123 14,130 7,123"/>
+          <polygon points="14,140 21,147 14,154 7,147"/>
+          <polygon points="14,164 21,171 14,178 7,171"/>
+          <polygon points="14,188 21,195 14,202 7,195"/>
+          <polygon points="14,212 21,219 14,226 7,219"/>
         </g>
-        {/* LEFT SMALL diamonds */}
+        {/* LEFT SMALL */}
         <g fill="#3d2c10">
-          <polygon points="14,47 17,50 14,53 11,50"/>
-          <polygon points="14,71 17,74 14,77 11,74"/>
-          <polygon points="14,95 17,98 14,101 11,98"/>
-          <polygon points="14,119 17,122 14,125 11,122"/>
-          <polygon points="14,143 17,146 14,149 11,146"/>
-          <polygon points="14,167 17,170 14,173 11,170"/>
-          <polygon points="14,191 17,194 14,197 11,194"/>
+          <polygon points="14,60 17,63 14,66 11,63"/>
+          <polygon points="14,84 17,87 14,90 11,87"/>
+          <polygon points="14,108 17,111 14,114 11,111"/>
+          <polygon points="14,132 17,135 14,138 11,135"/>
+          <polygon points="14,156 17,159 14,162 11,159"/>
+          <polygon points="14,180 17,183 14,186 11,183"/>
+          <polygon points="14,204 17,207 14,210 11,207"/>
         </g>
 
-        {/* RIGHT LARGE diamonds (cx=506) */}
+        {/* RIGHT LARGE (cx=506) */}
         <g fill="#7a5a22">
-          <polygon points="506,35 513,42 506,49 499,42"/>
-          <polygon points="506,59 513,66 506,73 499,66"/>
-          <polygon points="506,83 513,90 506,97 499,90"/>
-          <polygon points="506,107 513,114 506,121 499,114"/>
-          <polygon points="506,131 513,138 506,145 499,138"/>
-          <polygon points="506,155 513,162 506,169 499,162"/>
-          <polygon points="506,179 513,186 506,193 499,186"/>
-          <polygon points="506,203 513,210 506,217 499,210"/>
+          <polygon points="506,44 513,51 506,58 499,51"/>
+          <polygon points="506,68 513,75 506,82 499,75"/>
+          <polygon points="506,92 513,99 506,106 499,99"/>
+          <polygon points="506,116 513,123 506,130 499,123"/>
+          <polygon points="506,140 513,147 506,154 499,147"/>
+          <polygon points="506,164 513,171 506,178 499,171"/>
+          <polygon points="506,188 513,195 506,202 499,195"/>
+          <polygon points="506,212 513,219 506,226 499,219"/>
         </g>
-        {/* RIGHT SMALL diamonds */}
+        {/* RIGHT SMALL */}
         <g fill="#3d2c10">
-          <polygon points="506,47 509,50 506,53 503,50"/>
-          <polygon points="506,71 509,74 506,77 503,74"/>
-          <polygon points="506,95 509,98 506,101 503,98"/>
-          <polygon points="506,119 509,122 506,125 503,122"/>
-          <polygon points="506,143 509,146 506,149 503,146"/>
-          <polygon points="506,167 509,170 506,173 503,170"/>
-          <polygon points="506,191 509,194 506,197 503,194"/>
+          <polygon points="506,60 509,63 506,66 503,63"/>
+          <polygon points="506,84 509,87 506,90 503,87"/>
+          <polygon points="506,108 509,111 506,114 503,111"/>
+          <polygon points="506,132 509,135 506,138 503,135"/>
+          <polygon points="506,156 509,159 506,162 503,159"/>
+          <polygon points="506,180 509,183 506,186 503,183"/>
+          <polygon points="506,204 509,207 506,210 503,207"/>
         </g>
       </g>
 
@@ -213,18 +198,12 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
       <line x1="48" y1="218" x2="472" y2="218" stroke="#2e200a" strokeWidth="0.5"/>
 
       {/* Star accents */}
-      <text x="75" y="145" textAnchor="middle" fontFamily="serif" fontSize="15" fill="#4a3518">✦</text>
-      <text x="445" y="145" textAnchor="middle" fontFamily="serif" fontSize="15" fill="#4a3518">✦</text>
+      <text x="70" y="144" textAnchor="middle" fontFamily="serif" fontSize="15" fill="#4a3518">✦</text>
+      <text x="450" y="144" textAnchor="middle" fontFamily="serif" fontSize="15" fill="#4a3518">✦</text>
 
       {/* HOLLER wordmark */}
-      <text
-        x="260" y="196"
-        textAnchor="middle"
-        fontFamily="'Teko', sans-serif"
-        fontSize="158" fontWeight="500"
-        letterSpacing="-1"
-        fill="#c87d22"
-      >
+      <text x="260" y="196" textAnchor="middle" fontFamily="'Teko', sans-serif"
+        fontSize="158" fontWeight="500" letterSpacing="-1" fill="#c87d22">
         HOLLER
       </text>
     </svg>
