@@ -5,12 +5,11 @@ type Props = {
 
 export default function HollerLogo({ variant = 'full', size }: Props) {
   if (variant === 'wordmark') {
-    const fontSize = size ?? 48
     return (
       <svg
-        viewBox="0 0 300 80"
-        width={size ? size * (300 / 80) : 300}
-        height={size ?? 80}
+        viewBox="0 0 300 72"
+        width={size ? size * (300 / 72) : 300}
+        height={size ?? 72}
         xmlns="http://www.w3.org/2000/svg"
         aria-label="Holler"
       >
@@ -18,11 +17,10 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
           <style>{`@import url('https://fonts.googleapis.com/css2?family=Teko:wght@500&display=swap');`}</style>
         </defs>
         <text
-          x="150"
-          y="66"
+          x="150" y="60"
           textAnchor="middle"
           fontFamily="'Teko', sans-serif"
-          fontSize={fontSize}
+          fontSize="60"
           fontWeight="500"
           letterSpacing="-1"
           fill="#c87d22"
@@ -34,12 +32,13 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
   }
 
   // full variant — framed woodblock logo
-  const w = size ?? 520
-  const h = Math.round(w * (320 / 520))
+  // ViewBox: 520 wide x 270 tall (tighter vertically than before)
+  const w = size ?? 480
+  const h = Math.round(w * (270 / 520))
 
   return (
     <svg
-      viewBox="0 0 520 320"
+      viewBox="0 0 520 270"
       width={w}
       height={h}
       xmlns="http://www.w3.org/2000/svg"
@@ -50,131 +49,179 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         <pattern id="hatch" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
           <line x1="0" y1="6" x2="6" y2="0" stroke="#2a1e0a" strokeWidth="0.4" opacity="0.6"/>
         </pattern>
-        <clipPath id="cardClip"><rect x="0" y="0" width="520" height="320"/></clipPath>
+        <clipPath id="logoClip"><rect x="0" y="0" width="520" height="270"/></clipPath>
       </defs>
 
-      <rect width="520" height="320" fill="#191108"/>
-      <rect width="520" height="320" fill="url(#hatch)" opacity="0.45"/>
+      <rect width="520" height="270" fill="#191108"/>
+      <rect width="520" height="270" fill="url(#hatch)" opacity="0.45"/>
 
-      <g clipPath="url(#cardClip)">
+      <g clipPath="url(#logoClip)">
         {/* Border strip backgrounds */}
-        <rect x="0"   y="0"   width="520" height="30" fill="#111009"/>
-        <rect x="0"   y="290" width="520" height="30" fill="#111009"/>
-        <rect x="0"   y="0"   width="30"  height="320" fill="#111009"/>
-        <rect x="490" y="0"   width="30"  height="320" fill="#111009"/>
+        <rect x="0"   y="0"   width="520" height="28" fill="#111009"/>
+        <rect x="0"   y="242" width="520" height="28" fill="#111009"/>
+        <rect x="0"   y="0"   width="28"  height="270" fill="#111009"/>
+        <rect x="492" y="0"   width="28"  height="270" fill="#111009"/>
 
-        {/* TOP LARGE diamonds — centered, 20px padding each side */}
+        {/* TOP LARGE diamonds — centered, 20px padding each side, y center=14 */}
         <g fill="#7a5a22">
-          <polygon points="20,8 27,15 20,22 13,15"/><polygon points="44,8 51,15 44,22 37,15"/>
-          <polygon points="68,8 75,15 68,22 61,15"/><polygon points="92,8 99,15 92,22 85,15"/>
-          <polygon points="116,8 123,15 116,22 109,15"/><polygon points="140,8 147,15 140,22 133,15"/>
-          <polygon points="164,8 171,15 164,22 157,15"/><polygon points="188,8 195,15 188,22 181,15"/>
-          <polygon points="212,8 219,15 212,22 205,15"/><polygon points="236,8 243,15 236,22 229,15"/>
-          <polygon points="260,8 267,15 260,22 253,15"/><polygon points="284,8 291,15 284,22 277,15"/>
-          <polygon points="308,8 315,15 308,22 301,15"/><polygon points="332,8 339,15 332,22 325,15"/>
-          <polygon points="356,8 363,15 356,22 349,15"/><polygon points="380,8 387,15 380,22 373,15"/>
-          <polygon points="404,8 411,15 404,22 397,15"/><polygon points="428,8 435,15 428,22 421,15"/>
-          <polygon points="452,8 459,15 452,22 445,15"/><polygon points="476,8 483,15 476,22 469,15"/>
-          <polygon points="500,8 507,15 500,22 493,15"/>
+          <polygon points="20,7 27,14 20,21 13,14"/>
+          <polygon points="44,7 51,14 44,21 37,14"/>
+          <polygon points="68,7 75,14 68,21 61,14"/>
+          <polygon points="92,7 99,14 92,21 85,14"/>
+          <polygon points="116,7 123,14 116,21 109,14"/>
+          <polygon points="140,7 147,14 140,21 133,14"/>
+          <polygon points="164,7 171,14 164,21 157,14"/>
+          <polygon points="188,7 195,14 188,21 181,14"/>
+          <polygon points="212,7 219,14 212,21 205,14"/>
+          <polygon points="236,7 243,14 236,21 229,14"/>
+          <polygon points="260,7 267,14 260,21 253,14"/>
+          <polygon points="284,7 291,14 284,21 277,14"/>
+          <polygon points="308,7 315,14 308,21 301,14"/>
+          <polygon points="332,7 339,14 332,21 325,14"/>
+          <polygon points="356,7 363,14 356,21 349,14"/>
+          <polygon points="380,7 387,14 380,21 373,14"/>
+          <polygon points="404,7 411,14 404,21 397,14"/>
+          <polygon points="428,7 435,14 428,21 421,14"/>
+          <polygon points="452,7 459,14 452,21 445,14"/>
+          <polygon points="476,7 483,14 476,21 469,14"/>
+          <polygon points="500,7 507,14 500,21 493,14"/>
         </g>
         {/* TOP SMALL diamonds */}
         <g fill="#3d2c10">
-          <polygon points="32,12 35,15 32,18 29,15"/><polygon points="56,12 59,15 56,18 53,15"/>
-          <polygon points="80,12 83,15 80,18 77,15"/><polygon points="104,12 107,15 104,18 101,15"/>
-          <polygon points="128,12 131,15 128,18 125,15"/><polygon points="152,12 155,15 152,18 149,15"/>
-          <polygon points="176,12 179,15 176,18 173,15"/><polygon points="200,12 203,15 200,18 197,15"/>
-          <polygon points="224,12 227,15 224,18 221,15"/><polygon points="248,12 251,15 248,18 245,15"/>
-          <polygon points="272,12 275,15 272,18 269,15"/><polygon points="296,12 299,15 296,18 293,15"/>
-          <polygon points="320,12 323,15 320,18 317,15"/><polygon points="344,12 347,15 344,18 341,15"/>
-          <polygon points="368,12 371,15 368,18 365,15"/><polygon points="392,12 395,15 392,18 389,15"/>
-          <polygon points="416,12 419,15 416,18 413,15"/><polygon points="440,12 443,15 440,18 437,15"/>
-          <polygon points="464,12 467,15 464,18 461,15"/><polygon points="488,12 491,15 488,18 485,15"/>
+          <polygon points="32,11 35,14 32,17 29,14"/>
+          <polygon points="56,11 59,14 56,17 53,14"/>
+          <polygon points="80,11 83,14 80,17 77,14"/>
+          <polygon points="104,11 107,14 104,17 101,14"/>
+          <polygon points="128,11 131,14 128,17 125,14"/>
+          <polygon points="152,11 155,14 152,17 149,14"/>
+          <polygon points="176,11 179,14 176,17 173,14"/>
+          <polygon points="200,11 203,14 200,17 197,14"/>
+          <polygon points="224,11 227,14 224,17 221,14"/>
+          <polygon points="248,11 251,14 248,17 245,14"/>
+          <polygon points="272,11 275,14 272,17 269,14"/>
+          <polygon points="296,11 299,14 296,17 293,14"/>
+          <polygon points="320,11 323,14 320,17 317,14"/>
+          <polygon points="344,11 347,14 344,17 341,14"/>
+          <polygon points="368,11 371,14 368,17 365,14"/>
+          <polygon points="392,11 395,14 392,17 389,14"/>
+          <polygon points="416,11 419,14 416,17 413,14"/>
+          <polygon points="440,11 443,14 440,17 437,14"/>
+          <polygon points="464,11 467,14 464,17 461,14"/>
+          <polygon points="488,11 491,14 488,17 485,14"/>
         </g>
 
-        {/* BOTTOM LARGE diamonds */}
+        {/* BOTTOM LARGE diamonds — y center=256 */}
         <g fill="#7a5a22">
-          <polygon points="20,298 27,305 20,312 13,305"/><polygon points="44,298 51,305 44,312 37,305"/>
-          <polygon points="68,298 75,305 68,312 61,305"/><polygon points="92,298 99,305 92,312 85,305"/>
-          <polygon points="116,298 123,305 116,312 109,305"/><polygon points="140,298 147,305 140,312 133,305"/>
-          <polygon points="164,298 171,305 164,312 157,305"/><polygon points="188,298 195,305 188,312 181,305"/>
-          <polygon points="212,298 219,305 212,312 205,305"/><polygon points="236,298 243,305 236,312 229,305"/>
-          <polygon points="260,298 267,305 260,312 253,305"/><polygon points="284,298 291,305 284,312 277,305"/>
-          <polygon points="308,298 315,305 308,312 301,305"/><polygon points="332,298 339,305 332,312 325,305"/>
-          <polygon points="356,298 363,305 356,312 349,305"/><polygon points="380,298 387,305 380,312 373,305"/>
-          <polygon points="404,298 411,305 404,312 397,305"/><polygon points="428,298 435,305 428,312 421,305"/>
-          <polygon points="452,298 459,305 452,312 445,305"/><polygon points="476,298 483,305 476,312 469,305"/>
-          <polygon points="500,298 507,305 500,312 493,305"/>
+          <polygon points="20,249 27,256 20,263 13,256"/>
+          <polygon points="44,249 51,256 44,263 37,256"/>
+          <polygon points="68,249 75,256 68,263 61,256"/>
+          <polygon points="92,249 99,256 92,263 85,256"/>
+          <polygon points="116,249 123,256 116,263 109,256"/>
+          <polygon points="140,249 147,256 140,263 133,256"/>
+          <polygon points="164,249 171,256 164,263 157,256"/>
+          <polygon points="188,249 195,256 188,263 181,256"/>
+          <polygon points="212,249 219,256 212,263 205,256"/>
+          <polygon points="236,249 243,256 236,263 229,256"/>
+          <polygon points="260,249 267,256 260,263 253,256"/>
+          <polygon points="284,249 291,256 284,263 277,256"/>
+          <polygon points="308,249 315,256 308,263 301,256"/>
+          <polygon points="332,249 339,256 332,263 325,256"/>
+          <polygon points="356,249 363,256 356,263 349,256"/>
+          <polygon points="380,249 387,256 380,263 373,256"/>
+          <polygon points="404,249 411,256 404,263 397,256"/>
+          <polygon points="428,249 435,256 428,263 421,256"/>
+          <polygon points="452,249 459,256 452,263 445,256"/>
+          <polygon points="476,249 483,256 476,263 469,256"/>
+          <polygon points="500,249 507,256 500,263 493,256"/>
         </g>
         {/* BOTTOM SMALL diamonds */}
         <g fill="#3d2c10">
-          <polygon points="32,302 35,305 32,308 29,305"/><polygon points="56,302 59,305 56,308 53,305"/>
-          <polygon points="80,302 83,305 80,308 77,305"/><polygon points="104,302 107,305 104,308 101,305"/>
-          <polygon points="128,302 131,305 128,308 125,305"/><polygon points="152,302 155,305 152,308 149,305"/>
-          <polygon points="176,302 179,305 176,308 173,305"/><polygon points="200,302 203,305 200,308 197,305"/>
-          <polygon points="224,302 227,305 224,308 221,305"/><polygon points="248,302 251,305 248,308 245,305"/>
-          <polygon points="272,302 275,305 272,308 269,305"/><polygon points="296,302 299,305 296,308 293,305"/>
-          <polygon points="320,302 323,305 320,308 317,305"/><polygon points="344,302 347,305 344,308 341,305"/>
-          <polygon points="368,302 371,305 368,308 365,305"/><polygon points="392,302 395,305 392,308 389,305"/>
-          <polygon points="416,302 419,305 416,308 413,305"/><polygon points="440,302 443,305 440,308 437,305"/>
-          <polygon points="464,302 467,305 464,308 461,305"/><polygon points="488,302 491,305 488,308 485,305"/>
+          <polygon points="32,253 35,256 32,259 29,256"/>
+          <polygon points="56,253 59,256 56,259 53,256"/>
+          <polygon points="80,253 83,256 80,259 77,256"/>
+          <polygon points="104,253 107,256 104,259 101,256"/>
+          <polygon points="128,253 131,256 128,259 125,256"/>
+          <polygon points="152,253 155,256 152,259 149,256"/>
+          <polygon points="176,253 179,256 176,259 173,256"/>
+          <polygon points="200,253 203,256 200,259 197,256"/>
+          <polygon points="224,253 227,256 224,259 221,256"/>
+          <polygon points="248,253 251,256 248,259 245,256"/>
+          <polygon points="272,253 275,256 272,259 269,256"/>
+          <polygon points="296,253 299,256 296,259 293,256"/>
+          <polygon points="320,253 323,256 320,259 317,256"/>
+          <polygon points="344,253 347,256 344,259 341,256"/>
+          <polygon points="368,253 371,256 368,259 365,256"/>
+          <polygon points="392,253 395,256 392,259 389,256"/>
+          <polygon points="416,253 419,256 416,259 413,256"/>
+          <polygon points="440,253 443,256 440,259 437,256"/>
+          <polygon points="464,253 467,256 464,259 461,256"/>
+          <polygon points="488,253 491,256 488,259 485,256"/>
         </g>
 
-        {/* LEFT LARGE diamonds (cx=15) */}
+        {/* LEFT LARGE diamonds (cx=14), y: 42,66,90,114,138,162,186,210 */}
         <g fill="#7a5a22">
-          <polygon points="15,35 22,42 15,49 8,42"/><polygon points="15,59 22,66 15,73 8,66"/>
-          <polygon points="15,83 22,90 15,97 8,90"/><polygon points="15,107 22,114 15,121 8,114"/>
-          <polygon points="15,131 22,138 15,145 8,138"/><polygon points="15,155 22,162 15,169 8,162"/>
-          <polygon points="15,179 22,186 15,193 8,186"/><polygon points="15,203 22,210 15,217 8,210"/>
-          <polygon points="15,227 22,234 15,241 8,234"/><polygon points="15,251 22,258 15,265 8,258"/>
-          <polygon points="15,275 22,282 15,289 8,282"/>
+          <polygon points="14,35 21,42 14,49 7,42"/>
+          <polygon points="14,59 21,66 14,73 7,66"/>
+          <polygon points="14,83 21,90 14,97 7,90"/>
+          <polygon points="14,107 21,114 14,121 7,114"/>
+          <polygon points="14,131 21,138 14,145 7,138"/>
+          <polygon points="14,155 21,162 14,169 7,162"/>
+          <polygon points="14,179 21,186 14,193 7,186"/>
+          <polygon points="14,203 21,210 14,217 7,210"/>
         </g>
         {/* LEFT SMALL diamonds */}
         <g fill="#3d2c10">
-          <polygon points="15,51 18,54 15,57 12,54"/><polygon points="15,75 18,78 15,81 12,78"/>
-          <polygon points="15,99 18,102 15,105 12,102"/><polygon points="15,123 18,126 15,129 12,126"/>
-          <polygon points="15,147 18,150 15,153 12,150"/><polygon points="15,171 18,174 15,177 12,174"/>
-          <polygon points="15,195 18,198 15,201 12,198"/><polygon points="15,219 18,222 15,225 12,222"/>
-          <polygon points="15,243 18,246 15,249 12,246"/><polygon points="15,267 18,270 15,273 12,270"/>
+          <polygon points="14,47 17,50 14,53 11,50"/>
+          <polygon points="14,71 17,74 14,77 11,74"/>
+          <polygon points="14,95 17,98 14,101 11,98"/>
+          <polygon points="14,119 17,122 14,125 11,122"/>
+          <polygon points="14,143 17,146 14,149 11,146"/>
+          <polygon points="14,167 17,170 14,173 11,170"/>
+          <polygon points="14,191 17,194 14,197 11,194"/>
         </g>
 
-        {/* RIGHT LARGE diamonds (cx=505) */}
+        {/* RIGHT LARGE diamonds (cx=506) */}
         <g fill="#7a5a22">
-          <polygon points="505,35 512,42 505,49 498,42"/><polygon points="505,59 512,66 505,73 498,66"/>
-          <polygon points="505,83 512,90 505,97 498,90"/><polygon points="505,107 512,114 505,121 498,114"/>
-          <polygon points="505,131 512,138 505,145 498,138"/><polygon points="505,155 512,162 505,169 498,162"/>
-          <polygon points="505,179 512,186 505,193 498,186"/><polygon points="505,203 512,210 505,217 498,210"/>
-          <polygon points="505,227 512,234 505,241 498,234"/><polygon points="505,251 512,258 505,265 498,258"/>
-          <polygon points="505,275 512,282 505,289 498,282"/>
+          <polygon points="506,35 513,42 506,49 499,42"/>
+          <polygon points="506,59 513,66 506,73 499,66"/>
+          <polygon points="506,83 513,90 506,97 499,90"/>
+          <polygon points="506,107 513,114 506,121 499,114"/>
+          <polygon points="506,131 513,138 506,145 499,138"/>
+          <polygon points="506,155 513,162 506,169 499,162"/>
+          <polygon points="506,179 513,186 506,193 499,186"/>
+          <polygon points="506,203 513,210 506,217 499,210"/>
         </g>
         {/* RIGHT SMALL diamonds */}
         <g fill="#3d2c10">
-          <polygon points="505,51 508,54 505,57 502,54"/><polygon points="505,75 508,78 505,81 502,78"/>
-          <polygon points="505,99 508,102 505,105 502,102"/><polygon points="505,123 508,126 505,129 502,126"/>
-          <polygon points="505,147 508,150 505,153 502,150"/><polygon points="505,171 508,174 505,177 502,174"/>
-          <polygon points="505,195 508,198 505,201 502,198"/><polygon points="505,219 508,222 505,225 502,222"/>
-          <polygon points="505,243 508,246 505,249 502,246"/><polygon points="505,267 508,270 505,273 502,270"/>
+          <polygon points="506,47 509,50 506,53 503,50"/>
+          <polygon points="506,71 509,74 506,77 503,74"/>
+          <polygon points="506,95 509,98 506,101 503,98"/>
+          <polygon points="506,119 509,122 506,125 503,122"/>
+          <polygon points="506,143 509,146 506,149 503,146"/>
+          <polygon points="506,167 509,170 506,173 503,170"/>
+          <polygon points="506,191 509,194 506,197 503,194"/>
         </g>
       </g>
 
       {/* Outer border */}
-      <rect x="0" y="0" width="520" height="320" fill="none" stroke="#4a3518" strokeWidth="1.5"/>
+      <rect x="0" y="0" width="520" height="270" fill="none" stroke="#4a3518" strokeWidth="1.5"/>
       {/* Inner border */}
-      <rect x="30" y="30" width="460" height="260" fill="none" stroke="#2e200a" strokeWidth="0.75"/>
+      <rect x="28" y="28" width="464" height="214" fill="none" stroke="#2e200a" strokeWidth="0.75"/>
 
-      {/* Thin rules */}
-      <line x1="50" y1="70" x2="470" y2="70" stroke="#2e200a" strokeWidth="0.5"/>
-      <line x1="50" y1="255" x2="470" y2="255" stroke="#2e200a" strokeWidth="0.5"/>
+      {/* Thin rules flanking wordmark */}
+      <line x1="48" y1="62" x2="472" y2="62" stroke="#2e200a" strokeWidth="0.5"/>
+      <line x1="48" y1="218" x2="472" y2="218" stroke="#2e200a" strokeWidth="0.5"/>
 
       {/* Star accents */}
-      <text x="80" y="168" textAnchor="middle" fontFamily="serif" fontSize="16" fill="#4a3518">✦</text>
-      <text x="440" y="168" textAnchor="middle" fontFamily="serif" fontSize="16" fill="#4a3518">✦</text>
+      <text x="75" y="145" textAnchor="middle" fontFamily="serif" fontSize="15" fill="#4a3518">✦</text>
+      <text x="445" y="145" textAnchor="middle" fontFamily="serif" fontSize="15" fill="#4a3518">✦</text>
 
       {/* HOLLER wordmark */}
       <text
-        x="260" y="222"
+        x="260" y="196"
         textAnchor="middle"
         fontFamily="'Teko', sans-serif"
-        fontSize="172" fontWeight="500"
+        fontSize="158" fontWeight="500"
         letterSpacing="-1"
         fill="#c87d22"
       >
