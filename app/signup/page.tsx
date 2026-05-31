@@ -53,7 +53,7 @@ export default function SignupPage() {
         </div>
 
         <p className="label" style={{ marginBottom: '32px' }}>
-          Live song requests &nbsp;·&nbsp; for the bands that take 'em
+          Live song requests
         </p>
 
         <div className="card-ornate" style={{ textAlign: 'left' }}>
