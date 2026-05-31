@@ -4,20 +4,32 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+type Band = {
+  id: string
+  name: string
+  slug: string
+}
+
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null)
+  const [band, setBand] = useState<Band | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
-        router.push('/signup')
-      } else {
-        setUser(data.user)
-      }
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/signup'); return }
+
+      const { data } = await supabase
+        .from('bands')
+        .select('id, name, slug')
+        .eq('user_id', user.id)
+        .single()
+
+      setBand(data)
       setLoading(false)
-    })
+    }
+    load()
   }, [router])
 
   async function handleSignOut() {
@@ -44,25 +56,37 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Band setup prompt */}
+      {/* Band section */}
       <div style={{ marginBottom: '40px' }}>
         <p className="label" style={{ marginBottom: '16px' }}>Your band</p>
-        <div className="card">
-          <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '13px' }}>
-            Set up your band profile to start accepting requests.
-          </p>
-          <button className="btn-primary">
-            Set up band profile
-          </button>
-        </div>
+        {band ? (
+          <div className="card">
+            <h2 style={{ fontSize: '24px', marginBottom: '4px' }}>{band.name}</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>
+              holler.live/<span style={{ color: 'var(--accent)' }}>{band.slug}</span>
+            </p>
+            <button className="btn-primary">
+              Start a session
+            </button>
+          </div>
+        ) : (
+          <div className="card">
+            <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '13px' }}>
+              Set up your band profile to start accepting requests.
+            </p>
+            <a href="/setup" className="btn-primary" style={{ textDecoration: 'none' }}>
+              Set up band profile
+            </a>
+          </div>
+        )}
       </div>
 
-      {/* Sessions section — placeholder */}
+      {/* Sessions */}
       <div>
         <p className="label" style={{ marginBottom: '16px' }}>Sessions</p>
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-            No sessions yet. Set up your band profile to start one.
+            {band ? 'No sessions yet. Start one above.' : 'Set up your band profile to start a session.'}
           </p>
         </div>
       </div>
