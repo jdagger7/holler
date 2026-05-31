@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import HollerLogo from '@/components/HollerLogo'
 
 export default function SetupPage() {
   const [name, setName] = useState('')
@@ -35,7 +36,7 @@ export default function SetupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!slugAvailable) { setError('That name\'s already been claimed, partner.'); return }
+    if (!slugAvailable) { setError("That name's already been claimed, partner."); return }
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/signup'); return }
@@ -53,8 +54,8 @@ export default function SetupPage() {
         </a>
 
         <div style={{ margin: '28px 0', textAlign: 'center' }}>
-          <div className="wordmark" style={{ fontSize: '48px', marginBottom: '8px' }}>Holler</div>
-          <div className="star-divider" style={{ marginBottom: '8px' }}>
+          <HollerLogo variant="wordmark" size={56} />
+          <div className="star-divider" style={{ marginTop: '8px', marginBottom: '8px' }}>
             <span style={{ color: 'var(--star)', fontSize: '10px' }}>✦</span>
           </div>
           <p className="label-accent">Name your outfit</p>
@@ -95,17 +96,33 @@ export default function SetupPage() {
                   className="input"
                   type="text"
                   value={slug}
-                  onChange={e => { setSlugManuallyEdited(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')) }}
+                  onChange={e => {
+                    setSlugManuallyEdited(true)
+                    setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+                  }}
                   required
                   placeholder="your-band"
                   style={{
                     paddingLeft: '104px',
-                    borderColor: slugAvailable === false ? 'var(--danger)' : slugAvailable === true ? 'var(--success)' : undefined
+                    borderColor: slugAvailable === false
+                      ? 'var(--danger)'
+                      : slugAvailable === true
+                      ? 'var(--success)'
+                      : undefined,
                   }}
                 />
               </div>
-              <p style={{ fontSize: '11px', marginTop: '8px', color: slugAvailable === false ? 'var(--danger)' : slugAvailable === true ? 'var(--success)' : 'var(--text-muted)' }}>
-                {checking ? 'Checking...' : slugAvailable === true ? '✦ All yours' : slugAvailable === false ? '✗ Already claimed' : 'The link you\'ll put on your QR code'}
+              <p style={{
+                fontSize: '11px', marginTop: '8px',
+                color: slugAvailable === false ? 'var(--danger)' : slugAvailable === true ? 'var(--success)' : 'var(--text-muted)'
+              }}>
+                {checking
+                  ? 'Checking...'
+                  : slugAvailable === true
+                  ? '✦ All yours'
+                  : slugAvailable === false
+                  ? '✗ Already claimed'
+                  : "The link you'll put on your QR code"}
               </p>
             </div>
 
@@ -113,7 +130,12 @@ export default function SetupPage() {
               <p style={{ color: 'var(--danger)', fontSize: '12px', marginBottom: '16px' }}>{error}</p>
             )}
 
-            <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={saving || slugAvailable !== true}>
+            <button
+              type="submit"
+              className="btn-primary"
+              style={{ width: '100%' }}
+              disabled={saving || slugAvailable !== true}
+            >
               {saving ? 'Saving...' : 'Hang my shingle →'}
             </button>
           </form>

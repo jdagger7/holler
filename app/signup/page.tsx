@@ -1,145 +1,94 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 import HollerLogo from '@/components/HollerLogo'
 
-export default function SetupPage() {
-  const [name, setName] = useState('')
-  const [slug, setSlug] = useState('')
-  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
-  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null)
-  const [checking, setChecking] = useState(false)
+export default function SignupPage() {
+  const [email, setEmail] = useState('')
+  const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
-  const router = useRouter()
-
-  useEffect(() => {
-    if (!slugManuallyEdited && name) {
-      const generated = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-      setSlug(generated)
-    }
-  }, [name, slugManuallyEdited])
-
-  useEffect(() => {
-    if (!slug) { setSlugAvailable(null); return }
-    const timeout = setTimeout(async () => {
-      setChecking(true)
-      const { data } = await supabase.from('bands').select('id').eq('slug', slug).single()
-      setSlugAvailable(!data)
-      setChecking(false)
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [slug])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!slugAvailable) { setError("That name's already been claimed, partner."); return }
-    setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/signup'); return }
-    const { error } = await supabase.from('bands').insert({ name, slug, email: user.email, user_id: user.id })
-    if (error) { setError(error.message); setSaving(false) }
-    else router.push('/dashboard')
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    })
+    if (error) setError(error.message)
+    else setSubmitted(true)
+  }
+
+  if (submitted) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
+          <div className="card-ornate" style={{ padding: '40px 32px' }}>
+            <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
+            <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
+            <p className="label-accent" style={{ marginBottom: '20px' }}>Ride's on its way</p>
+            <h2 style={{ fontSize: '32px', marginBottom: '16px', fontStyle: 'italic' }}>
+              Check your inbox
+            </h2>
+            <div className="star-divider" style={{ justifyContent: 'center', marginBottom: '20px' }}>
+              <span style={{ color: 'var(--star)' }}>✦</span>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.9' }}>
+              Sent a link to <span style={{ color: 'var(--text)' }}>{email}</span>.<br />
+              Click it to get your band on the boards.
+            </p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ maxWidth: '480px', width: '100%' }}>
+      <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
 
-        <a href="/dashboard" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-          ← Back
-        </a>
-
-        <div style={{ margin: '28px 0', textAlign: 'center' }}>
-          <HollerLogo variant="wordmark" size={56} />
-          <div className="star-divider" style={{ marginTop: '8px', marginBottom: '8px' }}>
-            <span style={{ color: 'var(--star)', fontSize: '10px' }}>✦</span>
-          </div>
-          <p className="label-accent">Name your outfit</p>
+        <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'center' }}>
+          <HollerLogo variant="full" size={420} />
         </div>
 
-        <div className="card-ornate">
+        <p className="label" style={{ marginBottom: '32px' }}>
+          Live song requests &nbsp;·&nbsp; for the bands that take 'em
+        </p>
+
+        <div className="card-ornate" style={{ textAlign: 'left' }}>
           <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
           <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
 
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '16px' }}>
               <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
-                Band name
+                Band email
               </label>
               <input
                 className="input"
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="e.g. The Honky Tonk Devils"
+                placeholder="your@band.com"
               />
             </div>
 
-            <div style={{ marginBottom: '28px' }}>
-              <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
-                Your Holler link
-              </label>
-              <div style={{ position: 'relative' }}>
-                <span style={{
-                  position: 'absolute', left: '16px', top: '50%',
-                  transform: 'translateY(-50%)', color: 'var(--text-muted)',
-                  fontSize: '13px', pointerEvents: 'none', userSelect: 'none',
-                }}>
-                  holler.live/
-                </span>
-                <input
-                  className="input"
-                  type="text"
-                  value={slug}
-                  onChange={e => {
-                    setSlugManuallyEdited(true)
-                    setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
-                  }}
-                  required
-                  placeholder="your-band"
-                  style={{
-                    paddingLeft: '104px',
-                    borderColor: slugAvailable === false
-                      ? 'var(--danger)'
-                      : slugAvailable === true
-                      ? 'var(--success)'
-                      : undefined,
-                  }}
-                />
-              </div>
-              <p style={{
-                fontSize: '11px', marginTop: '8px',
-                color: slugAvailable === false ? 'var(--danger)' : slugAvailable === true ? 'var(--success)' : 'var(--text-muted)'
-              }}>
-                {checking
-                  ? 'Checking...'
-                  : slugAvailable === true
-                  ? '✦ All yours'
-                  : slugAvailable === false
-                  ? '✗ Already claimed'
-                  : "The link you'll put on your QR code"}
-              </p>
-            </div>
-
             {error && (
-              <p style={{ color: 'var(--danger)', fontSize: '12px', marginBottom: '16px' }}>{error}</p>
+              <p style={{ color: 'var(--danger)', fontSize: '12px', marginBottom: '12px' }}>{error}</p>
             )}
 
-            <button
-              type="submit"
-              className="btn-primary"
-              style={{ width: '100%' }}
-              disabled={saving || slugAvailable !== true}
-            >
-              {saving ? 'Saving...' : 'Hang my shingle →'}
+            <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '8px' }}>
+              Send magic link
             </button>
           </form>
         </div>
+
+        <p style={{ marginTop: '24px', color: 'var(--text-dim)', fontSize: '11px', letterSpacing: '0.06em' }}>
+          Already have an account?{' '}
+          <a href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sign in →</a>
+        </p>
 
       </div>
     </main>

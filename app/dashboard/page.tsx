@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import HollerLogo from '@/components/HollerLogo'
 
 type Band = { id: string; name: string; slug: string }
 
@@ -15,7 +16,11 @@ export default function DashboardPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/signup'); return }
-      const { data } = await supabase.from('bands').select('id, name, slug').eq('user_id', user.id).single()
+      const { data } = await supabase
+        .from('bands')
+        .select('id, name, slug')
+        .eq('user_id', user.id)
+        .single()
       setBand(data)
       setLoading(false)
     }
@@ -40,7 +45,7 @@ export default function DashboardPage() {
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <div className="wordmark" style={{ fontSize: '48px' }}>Holler</div>
+        <HollerLogo variant="wordmark" size={48} />
         <button onClick={handleSignOut} className="btn-ghost">Sign out</button>
       </div>
 
