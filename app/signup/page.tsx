@@ -22,16 +22,20 @@ export default function SignupPage() {
   if (submitted) {
     return (
       <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-        <div style={{ maxWidth: '420px', width: '100%' }}>
-          <div className="card card-ticket">
-            <p className="label-accent" style={{ marginBottom: '20px' }}>— Link on its way —</p>
-            <h2 style={{ fontSize: '30px', marginBottom: '12px' }}>Check your inbox</h2>
-            <hr className="rule" style={{ marginBottom: '20px' }} />
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8' }}>
-              We sent a magic link to{' '}
-              <span style={{ color: 'var(--text)' }}>{email}</span>.
-              <br />
-              Click it to finish setting up your account.
+        <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
+          <div className="card-ornate" style={{ padding: '40px 32px' }}>
+            <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
+            <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
+            <p className="label-accent" style={{ marginBottom: '20px' }}>Ride's on its way</p>
+            <h2 style={{ fontSize: '32px', marginBottom: '16px', fontStyle: 'italic' }}>
+              Check your inbox
+            </h2>
+            <div className="star-divider" style={{ justifyContent: 'center', marginBottom: '20px' }}>
+              <span style={{ color: 'var(--star)' }}>✦</span>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.9' }}>
+              Sent a link to <span style={{ color: 'var(--text)' }}>{email}</span>.<br />
+              Click it to get your band on the boards.
             </p>
           </div>
         </div>
@@ -41,43 +45,50 @@ export default function SignupPage() {
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ maxWidth: '420px', width: '100%' }}>
+      <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
 
-        <div style={{ marginBottom: '52px' }}>
-          <div className="wordmark">Holler</div>
-          <div className="rule-double" style={{ marginTop: '8px', marginBottom: '16px' }} />
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            Live song requests &nbsp;·&nbsp; Nashville & beyond
-          </p>
+        <div style={{ marginBottom: '8px' }}>
+          <div className="wordmark" style={{ fontSize: '80px' }}>Holler</div>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '8px' }}>
-            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
-              Band email address
-            </label>
-            <input
-              className="input"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              placeholder="your@band.com"
-            />
-          </div>
+        <div className="star-divider" style={{ marginBottom: '10px' }}>
+          <span style={{ color: 'var(--star)', fontSize: '12px' }}>✦ ✦ ✦</span>
+        </div>
 
-          {error && (
-            <p style={{ color: 'var(--danger)', fontSize: '12px', marginBottom: '12px', marginTop: '8px' }}>{error}</p>
-          )}
+        <p className="label" style={{ marginBottom: '40px' }}>
+          Live song requests &nbsp;·&nbsp; for the bands that take 'em
+        </p>
 
-          <div style={{ marginTop: '20px' }}>
-            <button type="submit" className="btn-primary" style={{ width: '100%', padding: '14px 28px', fontSize: '20px' }}>
+        <div className="card-ornate" style={{ textAlign: 'left' }}>
+          <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
+          <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
+
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '16px' }}>
+              <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
+                Band email
+              </label>
+              <input
+                className="input"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                placeholder="your@band.com"
+              />
+            </div>
+
+            {error && (
+              <p style={{ color: 'var(--danger)', fontSize: '12px', marginBottom: '12px' }}>{error}</p>
+            )}
+
+            <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '8px' }}>
               Send magic link
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
 
-        <p style={{ marginTop: '28px', color: 'var(--text-dim)', fontSize: '11px', letterSpacing: '0.06em' }}>
+        <p style={{ marginTop: '24px', color: 'var(--text-dim)', fontSize: '11px', letterSpacing: '0.06em' }}>
           Already have an account?{' '}
           <a href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sign in →</a>
         </p>
