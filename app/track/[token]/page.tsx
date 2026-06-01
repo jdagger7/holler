@@ -139,7 +139,7 @@ export default function TrackingPage() {
       label: 'Passed on',
       color: 'var(--text-muted)',
       borderColor: 'var(--border)',
-      message: request.reject_reason && request.reject_reason_public !== false
+      message: request.reject_reason
         ? REJECT_LABELS[request.reject_reason] ?? 'The band passed on this one.'
         : 'The band passed on this one.',
     },
