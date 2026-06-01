@@ -353,7 +353,6 @@ export default function RequesterPage() {
           colorInputBorder: '#524020',
         },
       },
-      paymentMethodTypes: ['card'],
     }
 
     return (

@@ -73,7 +73,6 @@ export default function TipModal({ bandId, bandName, venmoHandle, minTip, onClos
         colorInputBorder: '#524020',
       },
     },
-    paymentMethodTypes: ['card'],
   }
 
   if (mode === 'done') {
