@@ -44,23 +44,27 @@ export async function POST(request: NextRequest) {
       amount: amount_cents,
       currency: 'usd',
       capture_method: 'manual',
-      payment_method_types: ['card', 'link'],
+      // Explicitly list only card — overrides dashboard defaults
+      payment_method_types: ['card'],
       application_fee_amount: platformFee,
       transfer_data: { destination: band.stripe_account_id },
       description: req
         ? `Holler: "${req.title}" by ${req.artist} — ${band.name}`
         : `Holler tip for ${band.name}`,
       metadata: { request_id, band_id },
+    }, {
+      // Pass as platform on behalf of connected account
+      stripeAccount: undefined,
     })
 
-    console.log('PaymentIntent created:', paymentIntent.id, 'for band:', band.stripe_account_id)
+    console.log('PaymentIntent created:', paymentIntent.id, 'methods:', paymentIntent.payment_method_types)
 
     return NextResponse.json({
       client_secret: paymentIntent.client_secret,
       payment_intent_id: paymentIntent.id,
     })
   } catch (err: any) {
-    console.error('Create PaymentIntent error:', err.message, err.type, err.code)
+    console.error('Create PaymentIntent error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
