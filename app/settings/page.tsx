@@ -11,6 +11,7 @@ type Band = {
   name: string
   slug: string
   min_tip_cents: number
+  venmo_handle: string | null
 }
 
 export default function SettingsPage() {
@@ -20,19 +21,15 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
-  // Form state
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [minTip, setMinTip] = useState('5')
+  const [venmoHandle, setVenmoHandle] = useState('')
 
-  // Slug validation
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null)
   const [checkingSlug, setCheckingSlug] = useState(false)
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
-
-  // Slug change confirmation modal
   const [showSlugWarning, setShowSlugWarning] = useState(false)
-  const [pendingSave, setPendingSave] = useState(false)
 
   const router = useRouter()
 
@@ -42,7 +39,7 @@ export default function SettingsPage() {
       if (!user) { router.push('/signup'); return }
       const { data } = await supabase
         .from('bands')
-        .select('id, name, slug, min_tip_cents')
+        .select('id, name, slug, min_tip_cents, venmo_handle')
         .eq('user_id', user.id)
         .single()
       if (data) {
@@ -50,13 +47,13 @@ export default function SettingsPage() {
         setName(data.name)
         setSlug(data.slug)
         setMinTip(String(data.min_tip_cents / 100))
+        setVenmoHandle(data.venmo_handle ?? '')
       }
       setLoading(false)
     }
     load()
   }, [router])
 
-  // Auto-generate slug from name if not manually edited
   useEffect(() => {
     if (!slugManuallyEdited && name && band && name !== band.name) {
       const generated = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -64,11 +61,9 @@ export default function SettingsPage() {
     }
   }, [name, slugManuallyEdited, band])
 
-  // Check slug availability (only if changed from original)
   useEffect(() => {
     if (!band || slug === band.slug) { setSlugAvailable(null); return }
     if (!slug) { setSlugAvailable(null); return }
-
     const timeout = setTimeout(async () => {
       setCheckingSlug(true)
       const { data } = await supabase.from('bands').select('id').eq('slug', slug).single()
@@ -81,21 +76,13 @@ export default function SettingsPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-
     const amount = parseInt(minTip)
     if (isNaN(amount) || amount < 1) { setError('Minimum tip must be at least $1.'); return }
     if (amount > 100) { setError('Maximum allowed minimum is $100.'); return }
     if (!name.trim()) { setError('Act name is required.'); return }
     if (!slug.trim()) { setError('Holler link is required.'); return }
     if (slug !== band?.slug && slugAvailable === false) { setError('That URL is already taken.'); return }
-
-    // If slug changed, show warning first
-    if (slug !== band?.slug) {
-      setShowSlugWarning(true)
-      setPendingSave(true)
-      return
-    }
-
+    if (slug !== band?.slug) { setShowSlugWarning(true); return }
     save()
   }
 
@@ -103,26 +90,23 @@ export default function SettingsPage() {
     if (!band) return
     setSaving(true)
     setShowSlugWarning(false)
-    setPendingSave(false)
 
-    const amount = parseInt(minTip)
+    // Clean venmo handle — strip @ if present
+    const cleanVenmo = venmoHandle.trim().replace(/^@/, '') || null
 
     const { error: err } = await supabase
       .from('bands')
       .update({
         name: name.trim(),
         slug: slug.trim(),
-        min_tip_cents: amount * 100,
+        min_tip_cents: parseInt(minTip) * 100,
+        venmo_handle: cleanVenmo,
       })
       .eq('id', band.id)
 
-    if (err) {
-      setError(err.message)
-      setSaving(false)
-      return
-    }
+    if (err) { setError(err.message); setSaving(false); return }
 
-    setBand(prev => prev ? { ...prev, name: name.trim(), slug: slug.trim(), min_tip_cents: amount * 100 } : prev)
+    setBand(prev => prev ? { ...prev, name: name.trim(), slug: slug.trim(), min_tip_cents: parseInt(minTip) * 100, venmo_handle: cleanVenmo } : prev)
     setSaved(true)
     setSaving(false)
     setTimeout(() => setSaved(false), 2500)
@@ -142,7 +126,7 @@ export default function SettingsPage() {
     <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '480px', margin: '0 auto' }}>
 
       {showSlugWarning && (
-        <Modal title="Change your Holler link?" onClose={() => { setShowSlugWarning(false); setPendingSave(false) }}>
+        <Modal title="Change your Holler link?" onClose={() => setShowSlugWarning(false)}>
           <h2 style={{ fontSize: '22px', marginBottom: '12px' }}>Heads up</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', marginBottom: '8px' }}>
             Your link is changing from{' '}
@@ -154,12 +138,8 @@ export default function SettingsPage() {
             Any existing QR codes pointing to the old link will stop working.
           </p>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn-primary" style={{ flex: 1 }} onClick={save}>
-              Change it
-            </button>
-            <button className="btn-ghost" onClick={() => { setShowSlugWarning(false); setPendingSave(false) }}>
-              Cancel
-            </button>
+            <button className="btn-primary" style={{ flex: 1 }} onClick={save}>Change it</button>
+            <button className="btn-ghost" onClick={() => setShowSlugWarning(false)}>Cancel</button>
           </div>
         </Modal>
       )}
@@ -176,71 +156,36 @@ export default function SettingsPage() {
       <h1 style={{ fontSize: '28px', marginBottom: '32px' }}>Settings</h1>
 
       <form onSubmit={handleSubmit}>
+
+        {/* Act details */}
         <div className="card-ornate" style={{ marginBottom: '24px' }}>
           <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
           <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
-
           <p className="label-accent" style={{ marginBottom: '24px' }}>Your act</p>
 
-          {/* Act name */}
           <div style={{ marginBottom: '24px' }}>
-            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
-              Artist / act name
-            </label>
-            <input
-              className="input"
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              required
-              placeholder="e.g. The Honky Tonk Devils"
-            />
+            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>Artist / act name</label>
+            <input className="input" type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="e.g. The Honky Tonk Devils" />
           </div>
 
-          {/* Slug */}
-          <div style={{ marginBottom: '8px' }}>
-            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
-              Holler link
-            </label>
+          <div>
+            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>Holler link</label>
             <div style={{ position: 'relative' }}>
-              <span style={{
-                position: 'absolute', left: '16px', top: '50%',
-                transform: 'translateY(-50%)', color: 'var(--text-muted)',
-                fontSize: '13px', pointerEvents: 'none', userSelect: 'none',
-              }}>
+              <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '13px', pointerEvents: 'none', userSelect: 'none' }}>
                 holler.live/
               </span>
               <input
                 className="input"
                 type="text"
                 value={slug}
-                onChange={e => {
-                  setSlugManuallyEdited(true)
-                  setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
-                }}
+                onChange={e => { setSlugManuallyEdited(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')) }}
                 required
-                style={{
-                  paddingLeft: '104px',
-                  borderColor: slugChanged && slugAvailable === false
-                    ? 'var(--danger)'
-                    : slugChanged && slugAvailable === true
-                    ? 'var(--success)'
-                    : undefined,
-                }}
+                style={{ paddingLeft: '104px', borderColor: slugChanged && slugAvailable === false ? 'var(--danger)' : slugChanged && slugAvailable === true ? 'var(--success)' : undefined }}
               />
             </div>
             {slugChanged && (
-              <p style={{
-                fontSize: '11px', marginTop: '8px',
-                color: slugAvailable === false ? 'var(--danger)'
-                  : slugAvailable === true ? 'var(--success)'
-                  : 'var(--text-muted)',
-              }}>
-                {checkingSlug
-                  ? 'Checking...'
-                  : slugAvailable === true ? '✦ Available'
-                  : slugAvailable === false ? '✗ Already taken'
-                  : ''}
+              <p style={{ fontSize: '11px', marginTop: '8px', color: slugAvailable === false ? 'var(--danger)' : slugAvailable === true ? 'var(--success)' : 'var(--text-muted)' }}>
+                {checkingSlug ? 'Checking...' : slugAvailable === true ? '✦ Available' : slugAvailable === false ? '✗ Already taken' : ''}
               </p>
             )}
           </div>
@@ -250,35 +195,36 @@ export default function SettingsPage() {
         <div className="card-ornate" style={{ marginBottom: '24px' }}>
           <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
           <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
-
           <p className="label-accent" style={{ marginBottom: '24px' }}>Tip settings</p>
 
-          <div>
-            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
-              Minimum tip amount
-            </label>
+          <div style={{ marginBottom: '24px' }}>
+            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>Minimum tip amount</label>
             <div style={{ position: 'relative', maxWidth: '160px' }}>
-              <span style={{
-                position: 'absolute', left: '14px', top: '50%',
-                transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '15px',
-              }}>$</span>
+              <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '15px' }}>$</span>
+              <input className="input" type="number" min="1" max="100" step="1" value={minTip} onChange={e => setMinTip(e.target.value)} style={{ paddingLeft: '28px' }} />
+            </div>
+          </div>
+
+          <div>
+            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>Venmo handle</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '15px' }}>@</span>
               <input
                 className="input"
-                type="number"
-                min="1"
-                max="100"
-                step="1"
-                value={minTip}
-                onChange={e => setMinTip(e.target.value)}
+                type="text"
+                value={venmoHandle}
+                onChange={e => setVenmoHandle(e.target.value.replace(/^@/, ''))}
+                placeholder="your-venmo"
                 style={{ paddingLeft: '28px' }}
               />
             </div>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.7' }}>
+              Optional — lets audience tip you directly on Venmo.
+            </p>
           </div>
         </div>
 
-        {error && (
-          <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '16px' }}>{error}</p>
-        )}
+        {error && <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '16px' }}>{error}</p>}
 
         <button
           type="submit"

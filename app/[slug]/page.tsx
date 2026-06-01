@@ -12,11 +12,12 @@ import {
 } from '@stripe/react-stripe-js'
 import HollerLogo from '@/components/HollerLogo'
 import ContactPrompt from '@/components/ContactPrompt'
+import TipModal from '@/components/TipModal'
 import { useRequesterContact } from '@/hooks/useRequesterContact'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
-type Band = { id: string; name: string; slug: string; min_tip_cents: number; stripe_account_id: string | null }
+type Band = { id: string; name: string; slug: string; min_tip_cents: number; stripe_account_id: string | null; venmo_handle: string | null }
 type Session = { id: string; venue_name: string | null; status: string }
 type QueueRequest = {
   id: string
@@ -52,6 +53,7 @@ export default function RequesterPage() {
   const [freeTextArtist, setFreeTextArtist] = useState('')
   const [boostingRequest, setBoostingRequest] = useState<QueueRequest | null>(null)
 
+  const [showTipModal, setShowTipModal] = useState(false)
   const [tipAmount, setTipAmount] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -95,7 +97,7 @@ export default function RequesterPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: bandData } = await supabase.from('bands').select('id, name, slug, min_tip_cents, stripe_account_id').eq('slug', slug).single()
+      const { data: bandData } = await supabase.from('bands').select('id, name, slug, min_tip_cents, stripe_account_id, venmo_handle').eq('slug', slug).single()
       if (!bandData) { setLoading(false); return }
       setBand(bandData)
       const { data: sessionData } = await supabase.from('sessions').select('id, venue_name, status').eq('band_id', bandData.id).eq('status', 'active').single()
@@ -527,8 +529,25 @@ export default function RequesterPage() {
         {session.venue_name && <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{session.venue_name}</p>}
       </div>
 
-      <button className="btn-primary" style={{ width: '100%', marginBottom: '32px', fontSize: '18px', padding: '14px' }} onClick={() => setStep('search')}>
+      {showTipModal && (
+        <TipModal
+          bandId={band.id}
+          bandName={band.name}
+          venmoHandle={(band as any).venmo_handle ?? null}
+          minTip={minTip}
+          onClose={() => setShowTipModal(false)}
+        />
+      )}
+
+      <button className="btn-primary" style={{ width: '100%', marginBottom: '12px', fontSize: '18px', padding: '14px' }} onClick={() => setStep('search')}>
         Request a song →
+      </button>
+      <button
+        className="btn-ghost"
+        style={{ width: '100%', marginBottom: '28px', fontSize: '13px' }}
+        onClick={() => setShowTipModal(true)}
+      >
+        Tip the artist
       </button>
 
       {acceptedQueue.length > 0 && (
