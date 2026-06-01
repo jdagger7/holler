@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import HollerLogo from '@/components/HollerLogo'
+import Modal from '@/components/Modal'
 
 type Band = { id: string; name: string; slug: string; min_tip_cents: number }
 type Session = { id: string; venue_name: string | null; started_at: string; status: string }
@@ -13,19 +14,19 @@ export default function DashboardPage() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const [showVenueModal, setShowVenueModal] = useState(false)
+  const [venueName, setVenueName] = useState('')
   const router = useRouter()
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/signup'); return }
-
       const { data: bandData } = await supabase
         .from('bands')
         .select('id, name, slug, min_tip_cents')
         .eq('user_id', user.id)
         .single()
-
       if (bandData) {
         setBand(bandData)
         const { data: sessionData } = await supabase
@@ -36,23 +37,32 @@ export default function DashboardPage() {
           .limit(10)
         setSessions(sessionData ?? [])
       }
-
       setLoading(false)
     }
     load()
   }, [router])
 
   async function handleStartSession() {
+    setVenueName('')
+    setShowVenueModal(true)
+  }
+
+  async function confirmStartSession() {
     if (!band) return
     setStarting(true)
-    const venueName = window.prompt('Where are you playing tonight? (optional — press OK to skip)')
+    setShowVenueModal(false)
+
     const { data, error } = await supabase
       .from('sessions')
-      .insert({ band_id: band.id, venue_name: venueName?.trim() || null, status: 'active' })
+      .insert({ band_id: band.id, venue_name: venueName.trim() || null, status: 'active' })
       .select('id')
       .single()
 
-    if (error || !data) { alert('Something went wrong starting the session. Try again.'); setStarting(false); return }
+    if (error || !data) {
+      alert('Something went wrong starting the session. Try again.')
+      setStarting(false)
+      return
+    }
     router.push(`/session/${data.id}`)
   }
 
@@ -74,12 +84,40 @@ export default function DashboardPage() {
   return (
     <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '600px', margin: '0 auto' }}>
 
+      {/* Venue modal */}
+      {showVenueModal && (
+        <Modal title="Starting a session" onClose={() => setShowVenueModal(false)}>
+          <h2 style={{ fontSize: '22px', marginBottom: '20px' }}>Where are you playing?</h2>
+          <div style={{ marginBottom: '20px' }}>
+            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>Venue name</label>
+            <input
+              className="input"
+              type="text"
+              value={venueName}
+              onChange={e => setVenueName(e.target.value)}
+              placeholder="e.g. Robert's Western World"
+              autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') confirmStartSession() }}
+            />
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+              Optional — shown to your audience on the request page.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn-primary" style={{ flex: 1 }} onClick={confirmStartSession}>
+              Start session →
+            </button>
+            <button className="btn-ghost" onClick={() => setShowVenueModal(false)}>
+              Cancel
+            </button>
+          </div>
+        </Modal>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <HollerLogo variant="wordmark" size={48} />
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <a href="/settings" style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none', border: '1px solid var(--border-warm)', padding: '8px 14px' }}>
-            Settings
-          </a>
+          <a href="/settings" className="btn-ghost" style={{ textDecoration: 'none' }}>Settings</a>
           <button onClick={handleSignOut} className="btn-ghost">Sign out</button>
         </div>
       </div>
@@ -118,7 +156,12 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              <button className="btn-primary" style={{ width: '100%', opacity: starting ? 0.6 : 1 }} onClick={handleStartSession} disabled={starting}>
+              <button
+                className="btn-primary"
+                style={{ width: '100%', opacity: starting ? 0.6 : 1 }}
+                onClick={handleStartSession}
+                disabled={starting}
+              >
                 {starting ? 'Starting...' : "Start tonight's session →"}
               </button>
             )}
@@ -146,15 +189,21 @@ export default function DashboardPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {sessions.filter(s => s.status !== 'active').map(session => (
-              <div key={session.id} className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <p style={{ fontSize: '13px', marginBottom: '2px' }}>{session.venue_name ?? 'No venue set'}</p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    {new Date(session.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
+              <a
+                key={session.id}
+                href={`/session/${session.id}`}
+                style={{ textDecoration: 'none' }}
+              >
+                <div className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                  <div>
+                    <p style={{ fontSize: '13px', marginBottom: '2px', color: 'var(--text)' }}>{session.venue_name ?? 'No venue set'}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      {new Date(session.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <span className="label" style={{ fontSize: '10px' }}>{session.status}</span>
                 </div>
-                <span className="label" style={{ fontSize: '10px' }}>{session.status}</span>
-              </div>
+              </a>
             ))}
           </div>
         )}
