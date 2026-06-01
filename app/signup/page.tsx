@@ -91,7 +91,7 @@ export default function SignupPage() {
                 autoFocus
               />
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.7' }}>
-                Doesn't need to be an official act email — just yours. New or returning, we'll send a sign-in link either way.
+                New or returning, we'll send a sign-in link.
               </p>
             </div>
 

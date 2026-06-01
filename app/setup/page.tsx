@@ -58,10 +58,7 @@ export default function SetupPage() {
 
         <div style={{ marginBottom: '32px' }}>
           <p className="label-accent" style={{ marginBottom: '8px' }}>Set up your act</p>
-          <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>What are you called?</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-            Takes 30 seconds. You can change it later.
-          </p>
+          <h1 style={{ fontSize: '32px' }}>What are you called?</h1>
         </div>
 
         <div className="card-ornate">

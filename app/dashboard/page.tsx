@@ -149,14 +149,7 @@ export default function DashboardPage() {
         </Modal>
       )}
 
-      {/* Header — stretch alignment so buttons match wordmark height */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'stretch',
-        justifyContent: 'space-between',
-        marginBottom: '12px',
-        gap: '12px',
-      }}>
+      <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'space-between', marginBottom: '12px', gap: '12px' }}>
         <NavWordmark size={48} />
         <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
           <a href="/settings" className="btn-ghost" style={{ textDecoration: 'none' }}>Settings</a>
@@ -221,8 +214,8 @@ export default function DashboardPage() {
           <div className="card-ornate">
             <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
             <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px', lineHeight: '1.9' }}>
-              Before the requests come rollin' in, we need to know who's playing.
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>
+              Set up your act to get started.
             </p>
             <a href="/setup" className="btn-primary" style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}>
               Set up your act
