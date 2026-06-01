@@ -12,7 +12,6 @@ export default function SignupPage() {
   const [checking, setChecking] = useState(true)
   const router = useRouter()
 
-  // If already logged in, go straight to dashboard
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) router.replace('/dashboard')
@@ -91,7 +90,7 @@ export default function SignupPage() {
                 placeholder="your@band.com"
                 autoFocus
               />
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.7' }}>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.7' }}>
                 New or returning — we'll send you a sign-in link either way.
               </p>
             </div>
@@ -106,9 +105,10 @@ export default function SignupPage() {
           </form>
         </div>
 
-        <p style={{ marginTop: '20px', color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7' }}>
+        {/* Bottom tagline — readable color, not dim */}
+        <p style={{ marginTop: '24px', color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.7' }}>
           Looking to request a song?{' '}
-          <span style={{ color: 'var(--text-dim)' }}>Scan the QR code at the venue.</span>
+          <span style={{ color: 'var(--text-muted)' }}>Scan the QR code at the venue.</span>
         </p>
 
       </div>

@@ -12,16 +12,22 @@ type Props = {
 
 export default function QRModal({ url, bandName, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    if (!canvasRef.current) return
+    if (!canvasRef.current || !containerRef.current) return
+
+    // Responsive size — fit within container minus padding
+    const containerWidth = containerRef.current.offsetWidth
+    const size = Math.min(300, containerWidth - 32)
+
     QRCode.toCanvas(canvasRef.current, url, {
-      width: 320,
+      width: size,
       margin: 2,
       color: {
-        dark: '#f0e8d5',  // warm off-white — matches --text
-        light: '#191108', // dark card background — matches --bg-card
+        dark:  '#f2ead8',
+        light: '#2e2210',
       },
     })
   }, [url])
@@ -42,26 +48,31 @@ export default function QRModal({ url, bandName, onClose }: Props) {
 
   return (
     <Modal title="Audience QR code" onClose={onClose}>
-      <div style={{ textAlign: 'center' }}>
+      <div ref={containerRef} style={{ textAlign: 'center' }}>
 
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: '1.7' }}>
           Put this on screen or share the link so your audience can send requests.
         </p>
 
-        {/* QR code */}
+        {/* QR code — centered, never wider than container */}
         <div style={{
-          display: 'inline-block',
-          padding: '16px',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-warm)',
-          marginBottom: '20px',
+          display: 'flex',
+          justifyContent: 'center',
+          marginBottom: '16px',
         }}>
-          <canvas ref={canvasRef} style={{ display: 'block' }} />
+          <div style={{
+            padding: '12px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-warm)',
+            display: 'inline-block',
+          }}>
+            <canvas ref={canvasRef} style={{ display: 'block' }} />
+          </div>
         </div>
 
-        {/* URL display */}
+        {/* URL */}
         <p style={{
-          fontSize: '13px',
+          fontSize: '12px',
           color: 'var(--accent)',
           marginBottom: '20px',
           wordBreak: 'break-all',
@@ -70,11 +81,11 @@ export default function QRModal({ url, bandName, onClose }: Props) {
           {url}
         </p>
 
-        {/* Action buttons */}
+        {/* Actions */}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             className="btn-primary"
-            style={{ flex: 1, fontSize: '15px' }}
+            style={{ flex: 1, fontSize: '15px', padding: '12px 8px' }}
             onClick={handleDownload}
           >
             Download PNG
