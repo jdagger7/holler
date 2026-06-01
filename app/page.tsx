@@ -1,65 +1,68 @@
-import Image from "next/image";
+import HollerLogo from '@/components/HollerLogo'
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
+
+      <div style={{ maxWidth: '520px', width: '100%', textAlign: 'center' }}>
+
+        {/* Logo */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '32px' }}>
+          <HollerLogo variant="full" size={420} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+
+        {/* Tagline */}
+        <p className="label" style={{ marginBottom: '48px', letterSpacing: '0.2em' }}>
+          Live Song Requests
+        </p>
+
+        {/* How it works */}
+        <div className="card" style={{ marginBottom: '40px', textAlign: 'left', padding: '28px 32px' }}>
+          <p className="label-accent" style={{ marginBottom: '20px' }}>How it works</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {[
+              ['Scan the QR code', 'The band puts up a code at the start of their set.'],
+              ['Request a song', 'Search Spotify or type in anything you want to hear.'],
+              ['Tip to boost it', 'Add a tip to your request. Others can add to it too.'],
+              ['Get your money back', "If the song doesn't get played, you're automatically refunded."],
+            ].map(([title, desc]) => (
+              <div key={title} style={{ display: 'flex', gap: '16px' }}>
+                <span style={{ color: 'var(--accent)', fontFamily: "'Teko', sans-serif", fontSize: '18px', lineHeight: '1.4', flexShrink: 0 }}>✦</span>
+                <div>
+                  <p style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '2px' }}>{title}</p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.7' }}>{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTAs */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/signup"
+            className="btn-primary"
+            style={{ display: 'block', textDecoration: 'none', fontSize: '18px', padding: '14px' }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
+            I'm a musician — sign me up →
           </a>
           <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/dashboard"
+            style={{
+              display: 'block',
+              color: 'var(--text-muted)',
+              fontSize: '12px',
+              letterSpacing: '0.08em',
+              textDecoration: 'none',
+              padding: '8px',
+            }}
           >
-            Documentation
+            Already have an account? Sign in
           </a>
         </div>
-      </main>
-    </div>
-  );
+
+      </div>
+
+    </main>
+  )
 }
