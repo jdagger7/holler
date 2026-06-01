@@ -110,8 +110,12 @@ export default function SetupPage() {
             {error && <p style={{ color: 'var(--danger)', fontSize: '12px', marginBottom: '16px' }}>{error}</p>}
 
             <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={saving || slugAvailable !== true}>
-              {saving ? 'Saving...' : 'Hang my shingle →'}
+              {saving ? 'Saving...' : 'Create my profile →'}
             </button>
+
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px', textAlign: 'center' }}>
+              Don't worry — you can change this later in Settings.
+            </p>
           </form>
         </div>
 
