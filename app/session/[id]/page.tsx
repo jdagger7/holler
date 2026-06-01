@@ -51,7 +51,7 @@ export default function SessionPage() {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://holler.live'
   const queueUrl = bandSlug ? `${appUrl}/${bandSlug}` : ''
-  const displayUrl = bandSlug ? `holler.live/${bandSlug}` : '—'
+  const displayUrl = bandSlug ? `${appUrl}/${bandSlug}` : '—'
 
   const fetchRequests = useCallback(async () => {
     const { data } = await supabase
