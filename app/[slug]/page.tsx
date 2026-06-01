@@ -53,7 +53,7 @@ export default function RequesterPage() {
   const [submitError, setSubmitError] = useState('')
   const [trackingToken, setTrackingToken] = useState('')
 
-  const searchTimeout = useRef<NodeJS.Timeout>()
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchQueue = useCallback(async (sessionId: string) => {
     const { data } = await supabase
