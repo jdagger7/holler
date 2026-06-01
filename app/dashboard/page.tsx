@@ -99,7 +99,7 @@ function DashboardContent() {
 
   async function handleConnectStripe() {
     setConnectingStripe(true)
-    const res = await fetch('/api/stripe-connect-url')
+    const res = await fetch(`/api/stripe-connect-url?band_id=${band?.id}`)
     const { url, error } = await res.json()
     if (error || !url) {
       setStripeMessage('Could not start Stripe setup. Try again.')
