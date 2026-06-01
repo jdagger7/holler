@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import HollerLogo from '@/components/HollerLogo'
 import Modal from '@/components/Modal'
+import QRModal from '@/components/QRModal'
 
 type Request = {
   id: string
@@ -46,7 +47,11 @@ export default function SessionPage() {
   const [ending, setEnding] = useState(false)
   const [reviving, setReviving] = useState(false)
   const [showEndModal, setShowEndModal] = useState(false)
+  const [showQR, setShowQR] = useState(false)
   const [bandSlug, setBandSlug] = useState('')
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://holler.live'
+  const queueUrl = `${appUrl}/${bandSlug}`
 
   const fetchRequests = useCallback(async () => {
     const { data } = await supabase
@@ -122,28 +127,14 @@ export default function SessionPage() {
   async function confirmEndSession() {
     setEnding(true)
     setShowEndModal(false)
-
-    await supabase
-      .from('requests')
-      .update({ status: 'rejected', reject_reason: 'not_tonight' })
-      .eq('session_id', sessionId)
-      .in('status', ['pending', 'accepted'])
-
-    await supabase
-      .from('sessions')
-      .update({ status: 'ended', ended_at: new Date().toISOString() })
-      .eq('id', sessionId)
-
+    await supabase.from('requests').update({ status: 'rejected', reject_reason: 'not_tonight' }).eq('session_id', sessionId).in('status', ['pending', 'accepted'])
+    await supabase.from('sessions').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', sessionId)
     router.push('/dashboard')
   }
 
   async function handleRevive() {
     setReviving(true)
-    await supabase
-      .from('sessions')
-      .update({ status: 'active', ended_at: null })
-      .eq('id', sessionId)
-
+    await supabase.from('sessions').update({ status: 'active', ended_at: null }).eq('id', sessionId)
     setSession(prev => prev ? { ...prev, status: 'active', ended_at: null } : prev)
     setReviving(false)
   }
@@ -156,40 +147,28 @@ export default function SessionPage() {
     )
   }
 
-  // ── ENDED SESSION VIEW ────────────────────────────────────
+  // ── ENDED SESSION ─────────────────────────────────────────
   if (session?.status === 'ended') {
     const played = requests.filter(r => r.status === 'played')
     const totalTips = requests.reduce((sum, r) => sum + r.tip_total, 0)
 
     return (
       <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '600px', margin: '0 auto' }}>
-
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
           <HollerLogo variant="wordmark" size={36} />
-          <a href="/dashboard" style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none' }}>
-            ← Dashboard
-          </a>
+          <a href="/dashboard" style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none' }}>← Dashboard</a>
         </div>
 
         <div className="card-ornate" style={{ marginBottom: '28px', textAlign: 'center', padding: '40px 32px' }}>
           <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
           <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
-
           <p className="label" style={{ marginBottom: '16px' }}>Session ended</p>
-          <h2 style={{ fontSize: '28px', marginBottom: '8px' }}>
-            {session.venue_name ?? 'No venue set'}
-          </h2>
+          <h2 style={{ fontSize: '28px', marginBottom: '8px' }}>{session.venue_name ?? 'No venue set'}</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '28px' }}>
             {new Date(session.started_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            {session.ended_at && (
-              <> &nbsp;·&nbsp; {new Date(session.started_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – {new Date(session.ended_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</>
-            )}
+            {session.ended_at && <> &nbsp;·&nbsp; {new Date(session.started_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – {new Date(session.ended_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</>}
           </p>
-
-          <div className="star-divider" style={{ marginBottom: '28px' }}>
-            <span style={{ color: 'var(--star)' }}>✦</span>
-          </div>
-
+          <div className="star-divider" style={{ marginBottom: '28px' }}><span style={{ color: 'var(--star)' }}>✦</span></div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '48px', marginBottom: '32px' }}>
             <div>
               <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '48px', color: 'var(--accent)', lineHeight: 1 }}>{played.length}</p>
@@ -202,18 +181,11 @@ export default function SessionPage() {
               </div>
             )}
           </div>
-
-          <button
-            onClick={handleRevive}
-            className="btn-ghost"
-            style={{ fontSize: '11px', opacity: reviving ? 0.5 : 1 }}
-            disabled={reviving}
-          >
+          <button onClick={handleRevive} className="btn-ghost" style={{ fontSize: '11px', opacity: reviving ? 0.5 : 1 }} disabled={reviving}>
             {reviving ? 'Reopening...' : 'Reopen this session'}
           </button>
         </div>
 
-        {/* Played songs list */}
         {played.length > 0 && (
           <div>
             <p className="label" style={{ marginBottom: '14px' }}>Played tonight</p>
@@ -224,11 +196,7 @@ export default function SessionPage() {
                     <p style={{ fontSize: '14px', marginBottom: '2px' }}>{req.title}</p>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{req.artist}</p>
                   </div>
-                  {req.tip_total > 0 && (
-                    <p style={{ fontSize: '15px', color: 'var(--success)', fontFamily: "'Teko', sans-serif" }}>
-                      ${(req.tip_total / 100).toFixed(0)}
-                    </p>
-                  )}
+                  {req.tip_total > 0 && <p style={{ fontSize: '15px', color: 'var(--success)', fontFamily: "'Teko', sans-serif" }}>${(req.tip_total / 100).toFixed(0)}</p>}
                 </div>
               ))}
             </div>
@@ -238,7 +206,7 @@ export default function SessionPage() {
     )
   }
 
-  // ── ACTIVE SESSION VIEW ───────────────────────────────────
+  // ── ACTIVE SESSION ────────────────────────────────────────
   const pending  = requests.filter(r => r.status === 'pending')
   const accepted = requests.filter(r => r.status === 'accepted')
   const played   = requests.filter(r => r.status === 'played')
@@ -247,7 +215,6 @@ export default function SessionPage() {
   return (
     <main style={{ minHeight: '100vh', padding: '24px', maxWidth: '680px', margin: '0 auto' }}>
 
-      {/* End session modal */}
       {showEndModal && (
         <Modal title="End session" onClose={() => setShowEndModal(false)}>
           <h2 style={{ fontSize: '22px', marginBottom: '12px' }}>Call it a night?</h2>
@@ -255,50 +222,58 @@ export default function SessionPage() {
             This will close the session and automatically refund any pending requests that weren't played.
           </p>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              className="btn-primary"
-              style={{ flex: 1, background: 'var(--danger)', opacity: ending ? 0.6 : 1 }}
-              onClick={confirmEndSession}
-              disabled={ending}
-            >
+            <button className="btn-primary" style={{ flex: 1, background: 'var(--danger)', opacity: ending ? 0.6 : 1 }} onClick={confirmEndSession} disabled={ending}>
               {ending ? 'Ending...' : 'End session'}
             </button>
-            <button className="btn-ghost" onClick={() => setShowEndModal(false)}>
-              Keep going
-            </button>
+            <button className="btn-ghost" onClick={() => setShowEndModal(false)}>Keep going</button>
           </div>
         </Modal>
       )}
 
+      {showQR && bandSlug && (
+        <QRModal
+          url={queueUrl}
+          bandName={session?.venue_name ?? bandSlug}
+          onClose={() => setShowQR(false)}
+        />
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <HollerLogo variant="wordmark" size={36} />
-        <button
-          onClick={() => setShowEndModal(true)}
-          className="btn-ghost"
-          style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-        >
+        <button onClick={() => setShowEndModal(true)} className="btn-ghost" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}>
           End session
         </button>
       </div>
 
       <div style={{ marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid var(--border)' }}>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-          {session?.venue_name
-            ? <><span style={{ color: 'var(--text)' }}>{session.venue_name}</span> &nbsp;·&nbsp; </>
-            : null}
+          {session?.venue_name ? <><span style={{ color: 'var(--text)' }}>{session.venue_name}</span> &nbsp;·&nbsp; </> : null}
           Started {session ? new Date(session.started_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}
         </p>
       </div>
 
-      {/* Audience link */}
+      {/* Audience link + QR */}
       <div className="card" style={{ marginBottom: '28px', padding: '20px 24px' }}>
         <p className="label" style={{ marginBottom: '10px' }}>Audience link</p>
-        <p style={{ fontSize: '18px', color: 'var(--accent)', letterSpacing: '0.02em', marginBottom: '12px', wordBreak: 'break-all' }}>
-          holler.live/{bandSlug}
+        <p style={{ fontSize: '18px', color: 'var(--accent)', letterSpacing: '0.02em', marginBottom: '16px', wordBreak: 'break-all' }}>
+          {appUrl}/{bandSlug}
         </p>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.7' }}>
-          Point your audience here to send requests.
-        </p>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className="btn-primary"
+            style={{ fontSize: '15px', padding: '10px 20px' }}
+            onClick={() => setShowQR(true)}
+          >
+            Show QR code
+          </button>
+          <button
+            className="btn-ghost"
+            style={{ fontSize: '11px' }}
+            onClick={() => navigator.clipboard.writeText(queueUrl)}
+          >
+            Copy link
+          </button>
+        </div>
       </div>
 
       {/* ACCEPTED */}
@@ -396,7 +371,6 @@ function RequestCard({ req, onAccept, onPlayed, onRejectStart, rejectingId, onRe
           </div>
         )}
       </div>
-
       {isRejecting ? (
         <div>
           <p className="label" style={{ marginBottom: '10px' }}>Why are you passing?</p>
