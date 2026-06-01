@@ -216,6 +216,7 @@ h1, h2, h3 {
   box-shadow: none !important;
   font-family: 'IBM Plex Mono', monospace !important;
   margin-top: -1px;
+  border-radius: 0 !important;
 }
 .pac-item {
   background: var(--bg-card) !important;
@@ -225,6 +226,9 @@ h1, h2, h3 {
   font-size: 13px !important;
   padding: 10px 14px !important;
   cursor: pointer !important;
+  line-height: 1.5 !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 .pac-item:hover,
 .pac-item-selected {
@@ -233,10 +237,19 @@ h1, h2, h3 {
 .pac-item-query {
   color: var(--text) !important;
   font-size: 13px !important;
+  display: block !important;
 }
 .pac-matched {
   color: var(--accent) !important;
   font-weight: 500 !important;
+}
+/* Secondary text (address) on its own line, smaller */
+.pac-item > span:last-child:not(.pac-item-query) {
+  color: var(--text-muted) !important;
+  font-size: 11px !important;
+  margin-top: 2px !important;
+  white-space: normal !important;
+  display: block !important;
 }
 .pac-icon,
 .pac-logo::after {
