@@ -622,8 +622,6 @@ function PaymentForm({ onSuccess, onError, amount, minTip }: {
           layout: {
             type: 'accordion',
             defaultCollapsed: false,
-            radios: false,
-            spacedAccordionItems: false,
           },
           paymentMethodOrder: ['apple_pay', 'google_pay', 'card'],
         }} />

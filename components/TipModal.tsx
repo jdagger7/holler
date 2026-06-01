@@ -204,8 +204,6 @@ function CardTipForm({ amount, onSuccess, onBack, onError }: {
           layout: {
             type: 'accordion',
             defaultCollapsed: false,
-            radios: false,
-            spacedAccordionItems: false,
           },
           paymentMethodOrder: ['apple_pay', 'google_pay', 'card'],
         }} />
