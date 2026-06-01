@@ -3,15 +3,37 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import HollerLogo from '@/components/HollerLogo'
+import NavWordmark from '@/components/NavWordmark'
+import Modal from '@/components/Modal'
+
+type Band = {
+  id: string
+  name: string
+  slug: string
+  min_tip_cents: number
+}
 
 export default function SettingsPage() {
-  const [band, setBand] = useState<{ id: string; name: string; min_tip_cents: number } | null>(null)
-  const [minTip, setMinTip] = useState('5')
+  const [band, setBand] = useState<Band | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+
+  // Form state
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [minTip, setMinTip] = useState('5')
+
+  // Slug validation
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null)
+  const [checkingSlug, setCheckingSlug] = useState(false)
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
+
+  // Slug change confirmation modal
+  const [showSlugWarning, setShowSlugWarning] = useState(false)
+  const [pendingSave, setPendingSave] = useState(false)
+
   const router = useRouter()
 
   useEffect(() => {
@@ -20,11 +42,13 @@ export default function SettingsPage() {
       if (!user) { router.push('/signup'); return }
       const { data } = await supabase
         .from('bands')
-        .select('id, name, min_tip_cents')
+        .select('id, name, slug, min_tip_cents')
         .eq('user_id', user.id)
         .single()
       if (data) {
         setBand(data)
+        setName(data.name)
+        setSlug(data.slug)
         setMinTip(String(data.min_tip_cents / 100))
       }
       setLoading(false)
@@ -32,24 +56,76 @@ export default function SettingsPage() {
     load()
   }, [router])
 
-  async function handleSave(e: React.FormEvent) {
+  // Auto-generate slug from name if not manually edited
+  useEffect(() => {
+    if (!slugManuallyEdited && name && band && name !== band.name) {
+      const generated = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      setSlug(generated)
+    }
+  }, [name, slugManuallyEdited, band])
+
+  // Check slug availability (only if changed from original)
+  useEffect(() => {
+    if (!band || slug === band.slug) { setSlugAvailable(null); return }
+    if (!slug) { setSlugAvailable(null); return }
+
+    const timeout = setTimeout(async () => {
+      setCheckingSlug(true)
+      const { data } = await supabase.from('bands').select('id').eq('slug', slug).single()
+      setSlugAvailable(!data)
+      setCheckingSlug(false)
+    }, 400)
+    return () => clearTimeout(timeout)
+  }, [slug, band])
+
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+
     const amount = parseInt(minTip)
     if (isNaN(amount) || amount < 1) { setError('Minimum tip must be at least $1.'); return }
     if (amount > 100) { setError('Maximum allowed minimum is $100.'); return }
+    if (!name.trim()) { setError('Act name is required.'); return }
+    if (!slug.trim()) { setError('Holler link is required.'); return }
+    if (slug !== band?.slug && slugAvailable === false) { setError('That URL is already taken.'); return }
 
+    // If slug changed, show warning first
+    if (slug !== band?.slug) {
+      setShowSlugWarning(true)
+      setPendingSave(true)
+      return
+    }
+
+    save()
+  }
+
+  async function save() {
+    if (!band) return
     setSaving(true)
+    setShowSlugWarning(false)
+    setPendingSave(false)
+
+    const amount = parseInt(minTip)
+
     const { error: err } = await supabase
       .from('bands')
-      .update({ min_tip_cents: amount * 100 })
-      .eq('id', band!.id)
+      .update({
+        name: name.trim(),
+        slug: slug.trim(),
+        min_tip_cents: amount * 100,
+      })
+      .eq('id', band.id)
 
-    if (err) { setError(err.message); setSaving(false); return }
+    if (err) {
+      setError(err.message)
+      setSaving(false)
+      return
+    }
 
+    setBand(prev => prev ? { ...prev, name: name.trim(), slug: slug.trim(), min_tip_cents: amount * 100 } : prev)
     setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
     setSaving(false)
+    setTimeout(() => setSaved(false), 2500)
   }
 
   if (loading) {
@@ -60,14 +136,37 @@ export default function SettingsPage() {
     )
   }
 
+  const slugChanged = slug !== band?.slug
+
   return (
     <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '480px', margin: '0 auto' }}>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <HollerLogo variant="wordmark" size={36} />
-        <a href="/dashboard" style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none' }}>
-          ← Dashboard
-        </a>
+      {showSlugWarning && (
+        <Modal title="Change your Holler link?" onClose={() => { setShowSlugWarning(false); setPendingSave(false) }}>
+          <h2 style={{ fontSize: '22px', marginBottom: '12px' }}>Heads up</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', marginBottom: '8px' }}>
+            Your link is changing from{' '}
+            <span style={{ color: 'var(--text)' }}>holler.live/{band?.slug}</span>{' '}
+            to{' '}
+            <span style={{ color: 'var(--accent)' }}>holler.live/{slug}</span>.
+          </p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', marginBottom: '24px' }}>
+            Any existing QR codes pointing to the old link will stop working.
+          </p>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn-primary" style={{ flex: 1 }} onClick={save}>
+              Change it
+            </button>
+            <button className="btn-ghost" onClick={() => { setShowSlugWarning(false); setPendingSave(false) }}>
+              Cancel
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'space-between', marginBottom: '12px', gap: '12px' }}>
+        <NavWordmark size={36} />
+        <a href="/dashboard" className="btn-ghost" style={{ textDecoration: 'none' }}>← Dashboard</a>
       </div>
 
       <div className="star-divider" style={{ marginBottom: '36px' }}>
@@ -76,14 +175,85 @@ export default function SettingsPage() {
 
       <h1 style={{ fontSize: '28px', marginBottom: '32px' }}>Settings</h1>
 
-      <form onSubmit={handleSave}>
+      <form onSubmit={handleSubmit}>
         <div className="card-ornate" style={{ marginBottom: '24px' }}>
           <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
           <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
 
-          <p className="label-accent" style={{ marginBottom: '20px' }}>Tip settings</p>
+          <p className="label-accent" style={{ marginBottom: '24px' }}>Your act</p>
 
+          {/* Act name */}
+          <div style={{ marginBottom: '24px' }}>
+            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
+              Artist / act name
+            </label>
+            <input
+              className="input"
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+              placeholder="e.g. The Honky Tonk Devils"
+            />
+          </div>
+
+          {/* Slug */}
           <div style={{ marginBottom: '8px' }}>
+            <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
+              Holler link
+            </label>
+            <div style={{ position: 'relative' }}>
+              <span style={{
+                position: 'absolute', left: '16px', top: '50%',
+                transform: 'translateY(-50%)', color: 'var(--text-muted)',
+                fontSize: '13px', pointerEvents: 'none', userSelect: 'none',
+              }}>
+                holler.live/
+              </span>
+              <input
+                className="input"
+                type="text"
+                value={slug}
+                onChange={e => {
+                  setSlugManuallyEdited(true)
+                  setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+                }}
+                required
+                style={{
+                  paddingLeft: '104px',
+                  borderColor: slugChanged && slugAvailable === false
+                    ? 'var(--danger)'
+                    : slugChanged && slugAvailable === true
+                    ? 'var(--success)'
+                    : undefined,
+                }}
+              />
+            </div>
+            {slugChanged && (
+              <p style={{
+                fontSize: '11px', marginTop: '8px',
+                color: slugAvailable === false ? 'var(--danger)'
+                  : slugAvailable === true ? 'var(--success)'
+                  : 'var(--text-muted)',
+              }}>
+                {checkingSlug
+                  ? 'Checking...'
+                  : slugAvailable === true ? '✦ Available'
+                  : slugAvailable === false ? '✗ Already taken'
+                  : ''}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Tip settings */}
+        <div className="card-ornate" style={{ marginBottom: '24px' }}>
+          <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
+          <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
+
+          <p className="label-accent" style={{ marginBottom: '24px' }}>Tip settings</p>
+
+          <div>
             <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
               Minimum tip amount
             </label>
@@ -103,9 +273,6 @@ export default function SettingsPage() {
                 style={{ paddingLeft: '28px' }}
               />
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '10px', lineHeight: '1.7' }}>
-              The least someone can tip for a request. Default is $5.
-            </p>
           </div>
         </div>
 
@@ -117,7 +284,7 @@ export default function SettingsPage() {
           type="submit"
           className="btn-primary"
           style={{ width: '100%', opacity: saving ? 0.6 : 1 }}
-          disabled={saving}
+          disabled={saving || (slugChanged && slugAvailable === false)}
         >
           {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save settings'}
         </button>
