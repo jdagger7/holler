@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       amount: amount_cents,
       currency: 'usd',
       capture_method: 'automatic',
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'link'],
       application_fee_amount: platformFee,
       transfer_data: { destination: band.stripe_account_id },
       description: `Holler direct tip for ${band.name}`,

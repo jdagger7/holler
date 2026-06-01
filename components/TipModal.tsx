@@ -201,9 +201,13 @@ function CardTipForm({ amount, onSuccess, onBack, onError }: {
     <form onSubmit={handleSubmit}>
       <div style={{ marginBottom: '20px' }}>
         <PaymentElement options={{
-          layout: 'tabs',
-          paymentMethodOrder: ['card'],
-          wallets: { applePay: 'never', googlePay: 'never' },
+          layout: {
+            type: 'accordion',
+            defaultCollapsed: false,
+            radios: false,
+            spacedAccordionItems: false,
+          },
+          paymentMethodOrder: ['apple_pay', 'google_pay', 'card'],
         }} />
       </div>
       <div style={{ display: 'flex', gap: '8px' }}>

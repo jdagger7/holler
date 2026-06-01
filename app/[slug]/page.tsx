@@ -619,9 +619,13 @@ function PaymentForm({ onSuccess, onError, amount, minTip }: {
     <form onSubmit={handleSubmit}>
       <div style={{ marginBottom: '24px' }}>
         <PaymentElement options={{
-          layout: 'tabs',
-          paymentMethodOrder: ['card'],
-          wallets: { applePay: 'never', googlePay: 'never' },
+          layout: {
+            type: 'accordion',
+            defaultCollapsed: false,
+            radios: false,
+            spacedAccordionItems: false,
+          },
+          paymentMethodOrder: ['apple_pay', 'google_pay', 'card'],
         }} />
       </div>
       <button type="submit" className="btn-primary" style={{ width: '100%', opacity: processing ? 0.6 : 1 }} disabled={processing || !stripe}>
