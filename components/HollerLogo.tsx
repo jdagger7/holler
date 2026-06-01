@@ -11,7 +11,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         fontSize: size ?? 48,
         fontWeight: 500,
         letterSpacing: '-0.5px',
-        color: '#c87d22',
+        color: '#c47820',
         lineHeight: 1,
       }}>
         HOLLER
@@ -19,14 +19,15 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
     )
   }
 
-  const w = size ?? 480
-  const h = Math.round(w * (270 / 520))
+  // Full variant — fluid width if no size given, fixed if size provided
+  const svgProps = size
+    ? { width: size, height: Math.round(size * (270 / 520)) }
+    : { width: '100%', height: 'auto' }
 
   return (
     <svg
       viewBox="0 0 520 270"
-      width={w}
-      height={h}
+      {...svgProps}
       xmlns="http://www.w3.org/2000/svg"
       xmlnsXlink="http://www.w3.org/1999/xlink"
       aria-label="Holler"
@@ -34,22 +35,22 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
     >
       <defs>
         <pattern id="hatch" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
-          <line x1="0" y1="6" x2="6" y2="0" stroke="#2a1e0a" strokeWidth="0.4" opacity="0.6"/>
+          <line x1="0" y1="6" x2="6" y2="0" stroke="#2e2010" strokeWidth="0.4" opacity="0.6"/>
         </pattern>
         <clipPath id="logoClip"><rect x="0" y="0" width="520" height="270"/></clipPath>
       </defs>
 
-      <rect width="520" height="270" fill="#191108"/>
+      <rect width="520" height="270" fill="#1e1508"/>
       <rect width="520" height="270" fill="url(#hatch)" opacity="0.45"/>
 
       <g clipPath="url(#logoClip)">
-        <rect x="0"   y="0"   width="520" height="28" fill="#111009"/>
-        <rect x="0"   y="242" width="520" height="28" fill="#111009"/>
-        <rect x="0"   y="0"   width="28"  height="270" fill="#111009"/>
-        <rect x="492" y="0"   width="28"  height="270" fill="#111009"/>
+        <rect x="0"   y="0"   width="520" height="28" fill="#160e06"/>
+        <rect x="0"   y="242" width="520" height="28" fill="#160e06"/>
+        <rect x="0"   y="0"   width="28"  height="270" fill="#160e06"/>
+        <rect x="492" y="0"   width="28"  height="270" fill="#160e06"/>
 
         {/* CORNERS */}
-        <g fill="#8a6830">
+        <g fill="#8a6428">
           <polygon points="14,4 24,14 14,24 4,14"/>
           <polygon points="506,4 516,14 506,24 496,14"/>
           <polygon points="14,246 24,256 14,266 4,256"/>
@@ -57,7 +58,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         </g>
 
         {/* TOP LARGE */}
-        <g fill="#7a5a22">
+        <g fill="#7a5820">
           <polygon points="44,7 51,14 44,21 37,14"/><polygon points="68,7 75,14 68,21 61,14"/>
           <polygon points="92,7 99,14 92,21 85,14"/><polygon points="116,7 123,14 116,21 109,14"/>
           <polygon points="140,7 147,14 140,21 133,14"/><polygon points="164,7 171,14 164,21 157,14"/>
@@ -69,7 +70,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
           <polygon points="428,7 435,14 428,21 421,14"/><polygon points="452,7 459,14 452,21 445,14"/>
           <polygon points="476,7 483,14 476,21 469,14"/>
         </g>
-        <g fill="#3d2c10">
+        <g fill="#3a2a0e">
           <polygon points="56,11 59,14 56,17 53,14"/><polygon points="80,11 83,14 80,17 77,14"/>
           <polygon points="104,11 107,14 104,17 101,14"/><polygon points="128,11 131,14 128,17 125,14"/>
           <polygon points="152,11 155,14 152,17 149,14"/><polygon points="176,11 179,14 176,17 173,14"/>
@@ -82,7 +83,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         </g>
 
         {/* BOTTOM LARGE */}
-        <g fill="#7a5a22">
+        <g fill="#7a5820">
           <polygon points="44,249 51,256 44,263 37,256"/><polygon points="68,249 75,256 68,263 61,256"/>
           <polygon points="92,249 99,256 92,263 85,256"/><polygon points="116,249 123,256 116,263 109,256"/>
           <polygon points="140,249 147,256 140,263 133,256"/><polygon points="164,249 171,256 164,263 157,256"/>
@@ -94,7 +95,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
           <polygon points="428,249 435,256 428,263 421,256"/><polygon points="452,249 459,256 452,263 445,256"/>
           <polygon points="476,249 483,256 476,263 469,256"/>
         </g>
-        <g fill="#3d2c10">
+        <g fill="#3a2a0e">
           <polygon points="56,253 59,256 56,259 53,256"/><polygon points="80,253 83,256 80,259 77,256"/>
           <polygon points="104,253 107,256 104,259 101,256"/><polygon points="128,253 131,256 128,259 125,256"/>
           <polygon points="152,253 155,256 152,259 149,256"/><polygon points="176,253 179,256 176,259 173,256"/>
@@ -107,13 +108,13 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         </g>
 
         {/* LEFT LARGE */}
-        <g fill="#7a5a22">
+        <g fill="#7a5820">
           <polygon points="14,44 21,51 14,58 7,51"/><polygon points="14,68 21,75 14,82 7,75"/>
           <polygon points="14,92 21,99 14,106 7,99"/><polygon points="14,116 21,123 14,130 7,123"/>
           <polygon points="14,140 21,147 14,154 7,147"/><polygon points="14,164 21,171 14,178 7,171"/>
           <polygon points="14,188 21,195 14,202 7,195"/><polygon points="14,212 21,219 14,226 7,219"/>
         </g>
-        <g fill="#3d2c10">
+        <g fill="#3a2a0e">
           <polygon points="14,60 17,63 14,66 11,63"/><polygon points="14,84 17,87 14,90 11,87"/>
           <polygon points="14,108 17,111 14,114 11,111"/><polygon points="14,132 17,135 14,138 11,135"/>
           <polygon points="14,156 17,159 14,162 11,159"/><polygon points="14,180 17,183 14,186 11,183"/>
@@ -121,13 +122,13 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         </g>
 
         {/* RIGHT LARGE */}
-        <g fill="#7a5a22">
+        <g fill="#7a5820">
           <polygon points="506,44 513,51 506,58 499,51"/><polygon points="506,68 513,75 506,82 499,75"/>
           <polygon points="506,92 513,99 506,106 499,99"/><polygon points="506,116 513,123 506,130 499,123"/>
           <polygon points="506,140 513,147 506,154 499,147"/><polygon points="506,164 513,171 506,178 499,171"/>
           <polygon points="506,188 513,195 506,202 499,195"/><polygon points="506,212 513,219 506,226 499,219"/>
         </g>
-        <g fill="#3d2c10">
+        <g fill="#3a2a0e">
           <polygon points="506,60 509,63 506,66 503,63"/><polygon points="506,84 509,87 506,90 503,87"/>
           <polygon points="506,108 509,111 506,114 503,111"/><polygon points="506,132 509,135 506,138 503,135"/>
           <polygon points="506,156 509,159 506,162 503,159"/><polygon points="506,180 509,183 506,186 503,183"/>
@@ -135,17 +136,17 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         </g>
       </g>
 
-      {/* Borders and rules */}
-      <rect x="0" y="0" width="520" height="270" fill="none" stroke="#4a3518" strokeWidth="1.5"/>
-      <rect x="28" y="28" width="464" height="214" fill="none" stroke="#2e200a" strokeWidth="0.75"/>
-      <line x1="48" y1="65" x2="472" y2="65" stroke="#2e200a" strokeWidth="0.5"/>
-      <line x1="48" y1="215" x2="472" y2="215" stroke="#2e200a" strokeWidth="0.5"/>
+      {/* Borders */}
+      <rect x="0" y="0" width="520" height="270" fill="none" stroke="#4a3418" strokeWidth="1.5"/>
+      <rect x="28" y="28" width="464" height="214" fill="none" stroke="#2c1e08" strokeWidth="0.75"/>
+      <line x1="48" y1="65" x2="472" y2="65" stroke="#2c1e08" strokeWidth="0.5"/>
+      <line x1="48" y1="215" x2="472" y2="215" stroke="#2c1e08" strokeWidth="0.5"/>
 
       {/* Stars */}
-      <text x="60" y="148" textAnchor="middle" fontFamily="serif" fontSize="20" fill="#6a4e20">✦</text>
-      <text x="460" y="148" textAnchor="middle" fontFamily="serif" fontSize="20" fill="#6a4e20">✦</text>
+      <text x="60" y="148" textAnchor="middle" fontFamily="serif" fontSize="20" fill="#6a4c1e">✦</text>
+      <text x="460" y="148" textAnchor="middle" fontFamily="serif" fontSize="20" fill="#6a4c1e">✦</text>
 
-      {/* Wordmark via foreignObject — uses page fonts, no SVG font loading issues */}
+      {/* Wordmark via foreignObject */}
       <foreignObject x="48" y="68" width="424" height="148">
         <div
           style={{
@@ -157,7 +158,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
             fontFamily: "'Teko', sans-serif",
             fontSize: '148px',
             fontWeight: 500,
-            color: '#c87d22',
+            color: '#c47820',
             letterSpacing: '-1px',
             lineHeight: 1,
             overflow: 'hidden',

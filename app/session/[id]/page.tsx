@@ -49,6 +49,7 @@ export default function SessionPage() {
   const [showEndModal, setShowEndModal] = useState(false)
   const [showQR, setShowQR] = useState(false)
   const [bandSlug, setBandSlug] = useState('')
+  const [copiedLink, setCopiedLink] = useState(false)
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://holler.live'
   const queueUrl = `${appUrl}/${bandSlug}`
@@ -86,10 +87,7 @@ export default function SessionPage() {
       setSession(sessionData)
 
       const { data: bandData } = await supabase
-        .from('bands')
-        .select('slug')
-        .eq('id', sessionData.band_id)
-        .single()
+        .from('bands').select('slug').eq('id', sessionData.band_id).single()
 
       if (bandData) setBandSlug(bandData.slug)
       await fetchRequests()
@@ -139,6 +137,12 @@ export default function SessionPage() {
     setReviving(false)
   }
 
+  async function handleCopyLink() {
+    await navigator.clipboard.writeText(queueUrl)
+    setCopiedLink(true)
+    setTimeout(() => setCopiedLink(false), 2000)
+  }
+
   if (loading) {
     return (
       <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -153,23 +157,22 @@ export default function SessionPage() {
     const totalTips = requests.reduce((sum, r) => sum + r.tip_total, 0)
 
     return (
-      <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '600px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
+      <main style={{ minHeight: '100vh', padding: '24px 20px', maxWidth: '600px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
           <HollerLogo variant="wordmark" size={36} />
           <a href="/dashboard" style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none' }}>← Dashboard</a>
         </div>
 
-        <div className="card-ornate" style={{ marginBottom: '28px', textAlign: 'center', padding: '40px 32px' }}>
+        <div className="card-ornate" style={{ marginBottom: '24px', textAlign: 'center', padding: '32px 24px' }}>
           <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
           <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
-          <p className="label" style={{ marginBottom: '16px' }}>Session ended</p>
-          <h2 style={{ fontSize: '28px', marginBottom: '8px' }}>{session.venue_name ?? 'No venue set'}</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '28px' }}>
+          <p className="label" style={{ marginBottom: '12px' }}>Session ended</p>
+          <h2 style={{ fontSize: '24px', marginBottom: '6px' }}>{session.venue_name ?? 'No venue set'}</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
             {new Date(session.started_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            {session.ended_at && <> &nbsp;·&nbsp; {new Date(session.started_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – {new Date(session.ended_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</>}
           </p>
-          <div className="star-divider" style={{ marginBottom: '28px' }}><span style={{ color: 'var(--star)' }}>✦</span></div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '48px', marginBottom: '32px' }}>
+          <div className="star-divider" style={{ marginBottom: '24px' }}><span style={{ color: 'var(--star)' }}>✦</span></div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '40px', marginBottom: '28px' }}>
             <div>
               <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '48px', color: 'var(--accent)', lineHeight: 1 }}>{played.length}</p>
               <p className="label" style={{ marginTop: '4px' }}>Songs played</p>
@@ -188,7 +191,7 @@ export default function SessionPage() {
 
         {played.length > 0 && (
           <div>
-            <p className="label" style={{ marginBottom: '14px' }}>Played tonight</p>
+            <p className="label" style={{ marginBottom: '12px' }}>Played tonight</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {played.map(req => (
                 <div key={req.id} className="card" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -213,7 +216,7 @@ export default function SessionPage() {
   const rejected = requests.filter(r => r.status === 'rejected')
 
   return (
-    <main style={{ minHeight: '100vh', padding: '24px', maxWidth: '680px', margin: '0 auto' }}>
+    <main style={{ minHeight: '100vh', padding: '20px', maxWidth: '680px', margin: '0 auto', overflowX: 'hidden' }}>
 
       {showEndModal && (
         <Modal title="End session" onClose={() => setShowEndModal(false)}>
@@ -231,55 +234,49 @@ export default function SessionPage() {
       )}
 
       {showQR && bandSlug && (
-        <QRModal
-          url={queueUrl}
-          bandName={session?.venue_name ?? bandSlug}
-          onClose={() => setShowQR(false)}
-        />
+        <QRModal url={queueUrl} bandName={session?.venue_name ?? bandSlug} onClose={() => setShowQR(false)} />
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <HollerLogo variant="wordmark" size={36} />
-        <button onClick={() => setShowEndModal(true)} className="btn-ghost" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}>
+      {/* Header — constrained so End Session never clips */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '12px' }}>
+        <HollerLogo variant="wordmark" size={32} />
+        <button
+          onClick={() => setShowEndModal(true)}
+          className="btn-ghost"
+          style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '11px', whiteSpace: 'nowrap', flexShrink: 0 }}
+        >
           End session
         </button>
       </div>
 
-      <div style={{ marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid var(--border)' }}>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-          {session?.venue_name ? <><span style={{ color: 'var(--text)' }}>{session.venue_name}</span> &nbsp;·&nbsp; </> : null}
+      {/* Session info */}
+      <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {session?.venue_name && <><span style={{ color: 'var(--text)' }}>{session.venue_name}</span> &nbsp;·&nbsp; </>}
           Started {session ? new Date(session.started_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}
         </p>
       </div>
 
-      {/* Audience link + QR */}
-      <div className="card" style={{ marginBottom: '28px', padding: '20px 24px' }}>
-        <p className="label" style={{ marginBottom: '10px' }}>Audience link</p>
-        <p style={{ fontSize: '18px', color: 'var(--accent)', letterSpacing: '0.02em', marginBottom: '16px', wordBreak: 'break-all' }}>
-          {appUrl}/{bandSlug}
+      {/* Audience link — show just the slug, not full URL */}
+      <div className="card" style={{ marginBottom: '24px', padding: '18px 20px' }}>
+        <p className="label" style={{ marginBottom: '8px' }}>Audience link</p>
+        <p style={{ fontSize: '15px', color: 'var(--accent)', marginBottom: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {bandSlug ? `holler.live/${bandSlug}` : '—'}
         </p>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            className="btn-primary"
-            style={{ fontSize: '15px', padding: '10px 20px' }}
-            onClick={() => setShowQR(true)}
-          >
+          <button className="btn-primary" style={{ flex: 1, fontSize: '14px', padding: '10px 12px' }} onClick={() => setShowQR(true)}>
             Show QR code
           </button>
-          <button
-            className="btn-ghost"
-            style={{ fontSize: '11px' }}
-            onClick={() => navigator.clipboard.writeText(queueUrl)}
-          >
-            Copy link
+          <button className="btn-ghost" style={{ fontSize: '11px', padding: '10px 14px' }} onClick={handleCopyLink}>
+            {copiedLink ? 'Copied ✓' : 'Copy link'}
           </button>
         </div>
       </div>
 
       {/* ACCEPTED */}
       {accepted.length > 0 && (
-        <div style={{ marginBottom: '32px' }}>
-          <p className="label-accent" style={{ marginBottom: '14px' }}>Up next ({accepted.length})</p>
+        <div style={{ marginBottom: '28px' }}>
+          <p className="label-accent" style={{ marginBottom: '12px' }}>Up next ({accepted.length})</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {accepted.map(req => (
               <RequestCard key={req.id} req={req} onPlayed={() => handlePlayed(req.id)} onRejectStart={() => setRejectingId(req.id)} rejectingId={rejectingId} onReject={(reason) => handleReject(req.id, reason)} onRejectCancel={() => setRejectingId(null)} />
@@ -289,11 +286,11 @@ export default function SessionPage() {
       )}
 
       {/* PENDING */}
-      <div style={{ marginBottom: '32px' }}>
-        <p className="label" style={{ marginBottom: '14px' }}>Incoming {pending.length > 0 ? `(${pending.length})` : ''}</p>
+      <div style={{ marginBottom: '28px' }}>
+        <p className="label" style={{ marginBottom: '12px' }}>Incoming {pending.length > 0 ? `(${pending.length})` : ''}</p>
         {pending.length === 0 ? (
-          <div className="card" style={{ padding: '32px 24px', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No requests yet — share your link with the audience.</p>
+          <div className="card" style={{ padding: '28px 20px', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No requests yet — share your link.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -306,16 +303,16 @@ export default function SessionPage() {
 
       {/* PLAYED */}
       {played.length > 0 && (
-        <div style={{ marginBottom: '32px' }}>
-          <p className="label" style={{ marginBottom: '14px' }}>Played ({played.length})</p>
+        <div style={{ marginBottom: '28px' }}>
+          <p className="label" style={{ marginBottom: '12px' }}>Played ({played.length})</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {played.map(req => (
-              <div key={req.id} className="card" style={{ padding: '14px 18px', opacity: 0.6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={req.id} className="card" style={{ padding: '12px 16px', opacity: 0.6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <p style={{ fontSize: '14px' }}>{req.title}</p>
                   <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{req.artist}</p>
                 </div>
-                {req.tip_total > 0 && <p style={{ fontSize: '12px', color: 'var(--success)' }}>${(req.tip_total / 100).toFixed(0)}</p>}
+                {req.tip_total > 0 && <p style={{ fontSize: '13px', color: 'var(--success)' }}>${(req.tip_total / 100).toFixed(0)}</p>}
               </div>
             ))}
           </div>
@@ -325,10 +322,10 @@ export default function SessionPage() {
       {/* REJECTED */}
       {rejected.length > 0 && (
         <div>
-          <p className="label" style={{ marginBottom: '14px' }}>Passed on ({rejected.length})</p>
+          <p className="label" style={{ marginBottom: '12px' }}>Passed on ({rejected.length})</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {rejected.map(req => (
-              <div key={req.id} className="card" style={{ padding: '14px 18px', opacity: 0.4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={req.id} className="card" style={{ padding: '12px 16px', opacity: 0.4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <p style={{ fontSize: '14px' }}>{req.title}</p>
                   <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{req.artist}</p>
@@ -358,28 +355,27 @@ function RequestCard({ req, onAccept, onPlayed, onRejectStart, rejectingId, onRe
   const isAccepted = req.status === 'accepted'
 
   return (
-    <div className="card" style={{ padding: '18px 20px' }}>
+    <div className="card" style={{ padding: '16px 18px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
           <p style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.title}</p>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{req.artist}</p>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.artist}</p>
         </div>
         {req.tip_total > 0 && (
-          <div style={{ marginLeft: '12px', textAlign: 'right', flexShrink: 0 }}>
-            <p style={{ fontSize: '18px', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", lineHeight: 1 }}>${(req.tip_total / 100).toFixed(0)}</p>
-            <p style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>IN TIPS</p>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <p style={{ fontSize: '20px', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", lineHeight: 1 }}>${(req.tip_total / 100).toFixed(0)}</p>
+            <p style={{ fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>IN TIPS</p>
           </div>
         )}
       </div>
+
       {isRejecting ? (
         <div>
           <p className="label" style={{ marginBottom: '10px' }}>Why are you passing?</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
             {REJECT_REASONS.map(r => (
               <button key={r.value} onClick={() => onReject(r.value)}
-                style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-warm)', color: 'var(--text)', fontFamily: "'IBM Plex Mono', monospace", fontSize: '13px', padding: '10px 14px', textAlign: 'left', cursor: 'pointer', transition: 'border-color 0.1s' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--text-muted)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-warm)')}
+                style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-warm)', color: 'var(--text)', fontFamily: "'IBM Plex Mono', monospace", fontSize: '13px', padding: '12px 14px', textAlign: 'left', cursor: 'pointer', minHeight: '44px' }}
               >
                 {r.label}
               </button>
@@ -391,13 +387,13 @@ function RequestCard({ req, onAccept, onPlayed, onRejectStart, rejectingId, onRe
         <div style={{ display: 'flex', gap: '8px' }}>
           {isAccepted ? (
             <>
-              <button onClick={onPlayed} className="btn-primary" style={{ flex: 1, fontSize: '15px', padding: '10px' }}>✓ Mark as played</button>
-              <button onClick={onRejectStart} className="btn-ghost" style={{ fontSize: '11px', padding: '10px 14px' }}>Pass</button>
+              <button onClick={onPlayed} className="btn-primary" style={{ flex: 1, fontSize: '15px', padding: '12px', minHeight: '48px' }}>✓ Mark as played</button>
+              <button onClick={onRejectStart} className="btn-ghost" style={{ fontSize: '12px', padding: '12px 16px', minHeight: '48px' }}>Pass</button>
             </>
           ) : (
             <>
-              <button onClick={onAccept} className="btn-primary" style={{ flex: 1, fontSize: '15px', padding: '10px' }}>Accept</button>
-              <button onClick={onRejectStart} className="btn-ghost" style={{ fontSize: '11px', padding: '10px 14px' }}>Pass</button>
+              <button onClick={onAccept} className="btn-primary" style={{ flex: 1, fontSize: '15px', padding: '12px', minHeight: '48px' }}>Accept</button>
+              <button onClick={onRejectStart} className="btn-ghost" style={{ fontSize: '12px', padding: '12px 16px', minHeight: '48px' }}>Pass</button>
             </>
           )}
         </div>

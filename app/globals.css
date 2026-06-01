@@ -4,21 +4,21 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0e0b08;
-  --bg-raised: #1c1508;
-  --bg-card: #221a08;
-  --border: #3a2e1a;
-  --border-warm: #5a4428;
-  --border-bright: #7a6038;
-  --text: #f5efe0;
-  --text-muted: #a89060;
-  --text-dim: #5a4828;
-  --accent: #e8922a;
-  --accent-dim: #7a4a12;
-  --accent-pale: #2a1a06;
-  --danger: #c84040;
-  --success: #5aaa70;
-  --star: #e8c44a;
+  --bg:           #181208;
+  --bg-raised:    #201808;
+  --bg-card:      #221808;
+  --border:       #362a14;
+  --border-warm:  #4a3c22;
+  --border-bright:#6a5432;
+  --text:         #f0e8d5;
+  --text-muted:   #b09a70;
+  --text-dim:     #5a4828;
+  --accent:       #d4882a;
+  --accent-dim:   #7a4810;
+  --accent-pale:  #281808;
+  --danger:       #c04040;
+  --success:      #5aaa70;
+  --star:         #e0c040;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -40,7 +40,7 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.4;
+  opacity: 0.35;
   mix-blend-mode: multiply;
 }
 
@@ -148,10 +148,10 @@ h1, h2, h3 {
   color: var(--accent);
 }
 
-/* Buttons — Teko, not Rye */
+/* Buttons */
 .btn-primary {
   background: var(--accent);
-  color: #0e0b08;
+  color: #181208;
   font-family: 'Teko', sans-serif;
   font-size: 20px;
   font-weight: 600;
@@ -165,7 +165,7 @@ h1, h2, h3 {
   line-height: 1.2;
   text-align: center;
 }
-.btn-primary:hover    { opacity: 0.82; }
+.btn-primary:hover    { opacity: 0.85; }
 .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .btn-ghost {
