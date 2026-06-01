@@ -51,7 +51,7 @@ export default function SessionPage() {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://holler.live'
   const queueUrl = bandSlug ? `${appUrl}/${bandSlug}` : ''
-  const displayUrl = bandSlug ? `${appUrl}/${bandSlug}` : '—'
+  const displayUrl = bandSlug ? `holler.live/${bandSlug}` : '—'
 
   const fetchRequests = useCallback(async () => {
     const { data } = await supabase
@@ -105,11 +105,21 @@ export default function SessionPage() {
 
   async function handlePlayed(id: string) {
     await supabase.from('requests').update({ status: 'played', played_at: new Date().toISOString() }).eq('id', id)
+    fetch('/api/stripe/capture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_id: id }),
+    }).catch(console.error)
     fetchRequests()
   }
 
   async function handleReject(id: string, reason: string) {
     await supabase.from('requests').update({ status: 'rejected', reject_reason: reason }).eq('id', id)
+    fetch('/api/stripe/refund', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_id: id }),
+    }).catch(console.error)
     setRejectingId(null)
     fetchRequests()
   }

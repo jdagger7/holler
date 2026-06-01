@@ -2,11 +2,17 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import NavWordmark from '@/components/NavWordmark'
 import Modal from '@/components/Modal'
 
-type Band = { id: string; name: string; slug: string; min_tip_cents: number }
+type Band = {
+  id: string
+  name: string
+  slug: string
+  min_tip_cents: number
+  stripe_account_id: string | null
+}
 type Session = { id: string; venue_name: string | null; started_at: string; status: string }
 
 export default function DashboardPage() {
@@ -14,19 +20,39 @@ export default function DashboardPage() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const [connectingStripe, setConnectingStripe] = useState(false)
   const [showVenueModal, setShowVenueModal] = useState(false)
   const [venueName, setVenueName] = useState('')
   const [venuePlaceId, setVenuePlaceId] = useState<string | null>(null)
   const [venueAddress, setVenueAddress] = useState<string | null>(null)
+  const [stripeMessage, setStripeMessage] = useState<string | null>(null)
   const venueInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    // Handle Stripe Connect redirect messages
+    const stripe = searchParams.get('stripe')
+    if (stripe === 'connected') setStripeMessage('Stripe connected successfully.')
+    if (stripe === 'error') setStripeMessage('Something went wrong connecting Stripe. Try again.')
+    if (stripe === 'cancelled') setStripeMessage(null)
+    if (stripe) {
+      // Clean up URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete('stripe')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams])
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/signup'); return }
       const { data: bandData } = await supabase
-        .from('bands').select('id, name, slug, min_tip_cents').eq('user_id', user.id).single()
+        .from('bands')
+        .select('id, name, slug, min_tip_cents, stripe_account_id')
+        .eq('user_id', user.id)
+        .single()
       if (bandData) {
         setBand(bandData)
         const { data: sessionData } = await supabase
@@ -71,6 +97,18 @@ export default function DashboardPage() {
     }
   }, [showVenueModal])
 
+  async function handleConnectStripe() {
+    setConnectingStripe(true)
+    const res = await fetch('/api/stripe-connect-url')
+    const { url, error } = await res.json()
+    if (error || !url) {
+      setStripeMessage('Could not start Stripe setup. Try again.')
+      setConnectingStripe(false)
+      return
+    }
+    window.location.href = url
+  }
+
   async function handleStartSession() {
     setVenueName('')
     setVenuePlaceId(null)
@@ -114,6 +152,7 @@ export default function DashboardPage() {
   }
 
   const activeSession = sessions.find(s => s.status === 'active')
+  const stripeConnected = !!band?.stripe_account_id
 
   return (
     <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '600px', margin: '0 auto' }}>
@@ -161,6 +200,13 @@ export default function DashboardPage() {
         <span style={{ color: 'var(--star)', fontSize: '10px' }}>✦ ✦ ✦</span>
       </div>
 
+      {/* Stripe message banner */}
+      {stripeMessage && (
+        <div style={{ marginBottom: '24px', padding: '14px 18px', background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)' }}>
+          <p style={{ fontSize: '13px', color: 'var(--accent)' }}>{stripeMessage}</p>
+        </div>
+      )}
+
       <div style={{ marginBottom: '36px' }}>
         <p className="label" style={{ marginBottom: '14px' }}>Your act</p>
         {band ? (
@@ -184,12 +230,42 @@ export default function DashboardPage() {
                 flexShrink: 0,
                 alignSelf: 'flex-start',
               }}>
-                ✦ Ready
+                {stripeConnected ? '✦ Ready' : '◦ Setup needed'}
               </span>
             </div>
+
             <div className="star-divider" style={{ marginBottom: '20px' }}>
               <span style={{ color: 'var(--border-bright)', fontSize: '8px' }}>✦</span>
             </div>
+
+            {/* Stripe Connect section */}
+            {!stripeConnected ? (
+              <div style={{ marginBottom: '20px', padding: '16px 18px', background: 'var(--bg-raised)', border: '1px solid var(--border-warm)' }}>
+                <p className="label-accent" style={{ marginBottom: '8px' }}>Connect Stripe to get paid</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.7' }}>
+                  Link your Stripe account so tips go directly to you when songs are played.
+                </p>
+                <button
+                  className="btn-primary"
+                  style={{ width: '100%', opacity: connectingStripe ? 0.6 : 1 }}
+                  onClick={handleConnectStripe}
+                  disabled={connectingStripe}
+                >
+                  {connectingStripe ? 'Redirecting...' : 'Connect Stripe →'}
+                </button>
+              </div>
+            ) : (
+              <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <p style={{ fontSize: '12px', color: 'var(--success)' }}>✓ Stripe connected</p>
+                <button
+                  onClick={handleConnectStripe}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                >
+                  Reconnect
+                </button>
+              </div>
+            )}
+
             {activeSession ? (
               <div>
                 <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px' }}>
