@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 import HollerLogo from '@/components/HollerLogo'
+import ContactPrompt from '@/components/ContactPrompt'
+import { useRequesterContact } from '@/hooks/useRequesterContact'
 
 type Band = { id: string; name: string; slug: string }
 type Session = { id: string; venue_name: string | null; status: string }
@@ -29,6 +31,8 @@ export default function RequesterPage() {
   const params = useParams()
   const slug = params.slug as string
 
+  const { contact, setContact, clearContact, loaded: contactLoaded } = useRequesterContact()
+
   const [band, setBand] = useState<Band | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [queue, setQueue] = useState<QueueRequest[]>([])
@@ -47,8 +51,6 @@ export default function RequesterPage() {
   // Tip state
   const [tipAmount, setTipAmount] = useState<number>(5)
   const [customAmount, setCustomAmount] = useState('')
-  const [contact, setContact] = useState('')
-  const [contactType, setContactType] = useState<'email' | 'phone'>('email')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [trackingToken, setTrackingToken] = useState('')
@@ -152,10 +154,11 @@ export default function RequesterPage() {
   }, [searchQuery, freeTextMode])
 
   async function handleSubmit() {
-    if (!session || !band) return
-    if (!contact.trim()) { setSubmitError('Please enter your email or phone number.'); return }
+    if (!session || !band || !contact) return
 
-    const finalAmount = tipAmount === 0 ? Math.round(parseFloat(customAmount) * 100) : tipAmount * 100
+    const finalAmount = tipAmount === 0
+      ? Math.round(parseFloat(customAmount) * 100)
+      : tipAmount * 100
     if (!finalAmount || finalAmount < 500) { setSubmitError('Minimum tip is $5.'); return }
 
     setSubmitting(true)
@@ -166,21 +169,18 @@ export default function RequesterPage() {
     const spotify_track_id = freeTextMode ? null : selectedSong!.id
     const spotify_album_art_url = freeTextMode ? null : selectedSong!.album_art
 
-    const isEmail = contact.includes('@')
-    const requestPayload: any = {
-      session_id: session.id,
-      title,
-      artist,
-      spotify_track_id,
-      spotify_album_art_url,
-      requester_email: isEmail ? contact.trim() : null,
-      requester_phone: !isEmail ? contact.trim() : null,
-      status: 'pending',
-    }
-
     const { data: requestData, error: requestError } = await supabase
       .from('requests')
-      .insert(requestPayload)
+      .insert({
+        session_id: session.id,
+        title,
+        artist,
+        spotify_track_id,
+        spotify_album_art_url,
+        requester_email: contact.type === 'email' ? contact.value : null,
+        requester_phone: contact.type === 'phone' ? contact.value : null,
+        status: 'pending',
+      })
       .select('id')
       .single()
 
@@ -190,16 +190,15 @@ export default function RequesterPage() {
       return
     }
 
-    // Insert tip row (no Stripe yet — placeholder until Phase 4)
     const token = crypto.randomUUID()
     const { error: tipError } = await supabase
       .from('tips')
       .insert({
         request_id: requestData.id,
         amount_cents: finalAmount,
-        requester_email: isEmail ? contact.trim() : null,
-        requester_phone: !isEmail ? contact.trim() : null,
-        stripe_payment_intent_id: `placeholder_${token}`, // replaced in Phase 4
+        requester_email: contact.type === 'email' ? contact.value : null,
+        requester_phone: contact.type === 'phone' ? contact.value : null,
+        stripe_payment_intent_id: `placeholder_${token}`,
         tracking_token: token,
         status: 'held',
       })
@@ -215,7 +214,20 @@ export default function RequesterPage() {
     setSubmitting(false)
   }
 
-  if (loading) {
+  function resetRequest() {
+    setStep('queue')
+    setSelectedSong(null)
+    setFreeTextMode(false)
+    setFreeTextTitle('')
+    setFreeTextArtist('')
+    setSearchQuery('')
+    setTipAmount(5)
+    setCustomAmount('')
+    setSubmitError('')
+  }
+
+  // Wait for localStorage to load before rendering
+  if (!contactLoaded || loading) {
     return (
       <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p className="label">Loading...</p>
@@ -232,6 +244,11 @@ export default function RequesterPage() {
         </div>
       </main>
     )
+  }
+
+  // Show contact prompt if no contact saved yet
+  if (!contact) {
+    return <ContactPrompt bandName={band.name} onConfirm={(value, type) => setContact({ value, type })} />
   }
 
   if (!session) {
@@ -287,20 +304,7 @@ export default function RequesterPage() {
             >
               Track your request →
             </a>
-            <button
-              onClick={() => {
-                setStep('queue')
-                setSelectedSong(null)
-                setFreeTextMode(false)
-                setFreeTextTitle('')
-                setFreeTextArtist('')
-                setSearchQuery('')
-                setContact('')
-                setTipAmount(5)
-              }}
-              className="btn-ghost"
-              style={{ width: '100%', fontSize: '11px' }}
-            >
+            <button onClick={resetRequest} className="btn-ghost" style={{ width: '100%', fontSize: '11px' }}>
               Request another song
             </button>
           </div>
@@ -309,7 +313,7 @@ export default function RequesterPage() {
     )
   }
 
-  // ── CONFIRM (song selected, enter tip + contact) ──────────
+  // ── CONFIRM ────────────────────────────────────────────────
   if (step === 'confirm') {
     const song = freeTextMode
       ? { title: freeTextTitle, artist: freeTextArtist, album_art: null }
@@ -345,11 +349,12 @@ export default function RequesterPage() {
           </div>
         </div>
 
-        {/* Existing tip pool info */}
+        {/* Existing tip pool */}
         {existingRequest && existingRequest.tip_total > 0 && (
           <div style={{ marginBottom: '20px', padding: '14px 18px', background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)' }}>
             <p style={{ fontSize: '13px', color: 'var(--accent)', lineHeight: '1.7' }}>
-              {existingRequest.tip_count} {existingRequest.tip_count === 1 ? 'person has' : 'people have'} already tipped <strong>${(existingRequest.tip_total / 100).toFixed(0)}</strong> for this song. Add yours to boost it.
+              {existingRequest.tip_count} {existingRequest.tip_count === 1 ? 'person has' : 'people have'} already tipped{' '}
+              <strong>${(existingRequest.tip_total / 100).toFixed(0)}</strong> for this song. Add yours to boost it.
             </p>
           </div>
         )}
@@ -414,38 +419,18 @@ export default function RequesterPage() {
           </p>
         </div>
 
-        {/* Contact */}
-        <div style={{ marginBottom: '28px' }}>
-          <p className="label" style={{ marginBottom: '12px' }}>Where should we send your receipt?</p>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-            {(['email', 'phone'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => setContactType(type)}
-                style={{
-                  background: contactType === type ? 'var(--accent)' : 'var(--bg-raised)',
-                  border: `1px solid ${contactType === type ? 'var(--accent)' : 'var(--border-warm)'}`,
-                  color: contactType === type ? '#0e0b08' : 'var(--text-muted)',
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: '11px',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  transition: 'all 0.1s',
-                }}
-              >
-                {type}
-              </button>
-            ))}
+        {/* Contact display — already saved, just show it */}
+        <div style={{ marginBottom: '28px', padding: '12px 16px', background: 'var(--bg-raised)', border: '1px solid var(--border-warm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <p className="label" style={{ marginBottom: '3px' }}>Receipt goes to</p>
+            <p style={{ fontSize: '14px' }}>{contact.value}</p>
           </div>
-          <input
-            className="input"
-            type={contactType === 'email' ? 'email' : 'tel'}
-            value={contact}
-            onChange={e => setContact(e.target.value)}
-            placeholder={contactType === 'email' ? 'you@email.com' : '(615) 000-0000'}
-          />
+          <button
+            onClick={clearContact}
+            style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', letterSpacing: '0.06em', textDecoration: 'underline', padding: 0 }}
+          >
+            Not you?
+          </button>
         </div>
 
         {submitError && (
@@ -591,8 +576,14 @@ export default function RequesterPage() {
     <main style={{ minHeight: '100vh', padding: '32px 20px', maxWidth: '480px', margin: '0 auto' }}>
 
       <div style={{ marginBottom: '24px' }}>
-        <div style={{ marginBottom: '8px' }}>
+        <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <HollerLogo variant="wordmark" size={36} />
+          <button
+            onClick={clearContact}
+            style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline', padding: 0 }}
+          >
+            Not {contact.value.split('@')[0]}?
+          </button>
         </div>
         <h2 style={{ fontSize: '22px', marginBottom: '4px' }}>{band.name}</h2>
         {session.venue_name && (
