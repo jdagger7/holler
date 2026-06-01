@@ -148,7 +148,6 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
       {/* Wordmark via foreignObject — uses page fonts, no SVG font loading issues */}
       <foreignObject x="48" y="68" width="424" height="148">
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             width: '100%',
             height: '100%',
