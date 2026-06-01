@@ -135,7 +135,7 @@ export default function RequesterPage() {
     if (freeTextMode) return
     if (searchQuery.trim().length < 2) { setSearchResults([]); return }
 
-    clearTimeout(searchTimeout.current)
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
     searchTimeout.current = setTimeout(async () => {
       setSearching(true)
       try {
@@ -148,7 +148,7 @@ export default function RequesterPage() {
       setSearching(false)
     }, 350)
 
-    return () => clearTimeout(searchTimeout.current)
+    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current) }
   }, [searchQuery, freeTextMode])
 
   async function handleSubmit() {
