@@ -618,7 +618,11 @@ function PaymentForm({ onSuccess, onError, amount, minTip }: {
   return (
     <form onSubmit={handleSubmit}>
       <div style={{ marginBottom: '24px' }}>
-        <PaymentElement options={{ layout: "tabs", paymentMethodOrder: ["card"] }} />
+        <PaymentElement options={{
+          layout: 'tabs',
+          paymentMethodOrder: ['card'],
+          wallets: { applePay: 'never', googlePay: 'never' },
+        }} />
       </div>
       <button type="submit" className="btn-primary" style={{ width: '100%', opacity: processing ? 0.6 : 1 }} disabled={processing || !stripe}>
         {processing ? 'Processing...' : `Hold $${(amount / 100).toFixed(0)} →`}

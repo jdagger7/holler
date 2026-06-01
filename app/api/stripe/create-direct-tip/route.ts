@@ -34,11 +34,10 @@ export async function POST(request: NextRequest) {
 
     const platformFee = Math.round(amount_cents * PLATFORM_FEE_PERCENT)
 
-    // Direct charge — no hold, instant capture
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount_cents,
       currency: 'usd',
-      capture_method: 'automatic', // charge immediately
+      capture_method: 'automatic',
       payment_method_types: ['card'],
       application_fee_amount: platformFee,
       transfer_data: { destination: band.stripe_account_id },
@@ -46,12 +45,14 @@ export async function POST(request: NextRequest) {
       metadata: { band_id, type: 'direct_tip' },
     })
 
+    console.log('Direct tip PaymentIntent created:', paymentIntent.id)
+
     return NextResponse.json({
       client_secret: paymentIntent.client_secret,
       payment_intent_id: paymentIntent.id,
     })
   } catch (err: any) {
-    console.error('Direct tip error:', err)
+    console.error('Direct tip error:', err.message)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

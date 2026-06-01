@@ -200,7 +200,11 @@ function CardTipForm({ amount, onSuccess, onBack, onError }: {
   return (
     <form onSubmit={handleSubmit}>
       <div style={{ marginBottom: '20px' }}>
-        <PaymentElement options={{ layout: 'tabs', paymentMethodOrder: ['card'] }} />
+        <PaymentElement options={{
+          layout: 'tabs',
+          paymentMethodOrder: ['card'],
+          wallets: { applePay: 'never', googlePay: 'never' },
+        }} />
       </div>
       <div style={{ display: 'flex', gap: '8px' }}>
         <button type="submit" className="btn-primary" style={{ flex: 1, opacity: processing ? 0.6 : 1 }} disabled={processing || !stripe}>
