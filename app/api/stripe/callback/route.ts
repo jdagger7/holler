@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -25,12 +25,21 @@ export async function GET(request: NextRequest) {
 
     const connectedAccountId = response.stripe_user_id
 
-    // Save to band record
-    const supabase = await createSupabaseServerClient()
-    await supabase
+    // Use service role key to bypass RLS — this is a server-only route
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { error: updateError } = await supabase
       .from('bands')
       .update({ stripe_account_id: connectedAccountId })
       .eq('id', bandId)
+
+    if (updateError) {
+      console.error('Supabase update error:', updateError)
+      return NextResponse.redirect(`${appUrl}/dashboard?stripe=error`)
+    }
 
     return NextResponse.redirect(`${appUrl}/dashboard?stripe=connected`)
   } catch (err) {
