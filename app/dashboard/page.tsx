@@ -19,7 +19,6 @@ export default function DashboardPage() {
   const [venuePlaceId, setVenuePlaceId] = useState<string | null>(null)
   const [venueAddress, setVenueAddress] = useState<string | null>(null)
   const venueInputRef = useRef<HTMLInputElement>(null)
-  const autocompleteRef = useRef<any>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -40,7 +39,6 @@ export default function DashboardPage() {
     load()
   }, [router])
 
-  // Initialize Google Places autocomplete when modal opens
   useEffect(() => {
     if (!showVenueModal) return
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
@@ -60,7 +58,6 @@ export default function DashboardPage() {
           setVenueAddress(place.formatted_address ?? null)
         }
       })
-      autocompleteRef.current = autocomplete
     }
 
     if ((window as any).google?.maps) {
@@ -85,7 +82,6 @@ export default function DashboardPage() {
     if (!band) return
     setStarting(true)
     setShowVenueModal(false)
-
     const { data, error } = await supabase
       .from('sessions')
       .insert({
@@ -96,7 +92,6 @@ export default function DashboardPage() {
         status: 'active',
       })
       .select('id').single()
-
     if (error || !data) {
       alert('Something went wrong starting the session. Try again.')
       setStarting(false)
@@ -154,9 +149,16 @@ export default function DashboardPage() {
         </Modal>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+      {/* Header — stretch alignment so buttons match wordmark height */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        justifyContent: 'space-between',
+        marginBottom: '12px',
+        gap: '12px',
+      }}>
         <NavWordmark size={48} />
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
           <a href="/settings" className="btn-ghost" style={{ textDecoration: 'none' }}>Settings</a>
           <button onClick={handleSignOut} className="btn-ghost">Sign out</button>
         </div>
@@ -205,7 +207,12 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              <button className="btn-primary" style={{ width: '100%', opacity: starting ? 0.6 : 1 }} onClick={handleStartSession} disabled={starting}>
+              <button
+                className="btn-primary"
+                style={{ width: '100%', opacity: starting ? 0.6 : 1 }}
+                onClick={handleStartSession}
+                disabled={starting}
+              >
                 {starting ? 'Starting...' : "Start tonight's session →"}
               </button>
             )}

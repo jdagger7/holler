@@ -182,12 +182,13 @@ h1, h2, h3 {
   border: 1px solid var(--border-warm);
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
-  display: inline-block;
-  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   text-align: center;
   text-decoration: none;
   vertical-align: middle;
-  /* Normalize <button> defaults */
   appearance: none;
   -webkit-appearance: none;
 }
@@ -243,7 +244,7 @@ h1, h2, h3 {
   color: var(--accent) !important;
   font-weight: 500 !important;
 }
-/* Secondary text (address) on its own line, smaller */
+/* Address on its own line, smaller */
 .pac-item > span:last-child:not(.pac-item-query) {
   color: var(--text-muted) !important;
   font-size: 11px !important;
