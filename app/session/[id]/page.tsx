@@ -1,0 +1,425 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useRouter, useParams } from 'next/navigation'
+import HollerLogo from '@/components/HollerLogo'
+
+type Request = {
+  id: string
+  title: string
+  artist: string
+  spotify_album_art_url: string | null
+  requester_email: string | null
+  requester_phone: string | null
+  status: 'pending' | 'accepted' | 'played' | 'rejected'
+  reject_reason: string | null
+  created_at: string
+  tip_total: number
+}
+
+type Session = {
+  id: string
+  venue_name: string | null
+  started_at: string
+  status: string
+  band_id: string
+}
+
+const REJECT_REASONS = [
+  { value: 'dont_know', label: "Don't know it" },
+  { value: 'not_tonight', label: 'Not tonight' },
+  { value: 'already_played', label: 'Already played it' },
+]
+
+export default function SessionPage() {
+  const params = useParams()
+  const sessionId = params.id as string
+  const router = useRouter()
+
+  const [session, setSession] = useState<Session | null>(null)
+  const [requests, setRequests] = useState<Request[]>([])
+  const [loading, setLoading] = useState(true)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [ending, setEnding] = useState(false)
+  const [bandSlug, setBandSlug] = useState<string>('')
+
+  const fetchRequests = useCallback(async () => {
+    const { data } = await supabase
+      .from('requests')
+      .select(`
+        id, title, artist, spotify_album_art_url,
+        requester_email, requester_phone, status,
+        reject_reason, created_at,
+        tips(amount_cents, status)
+      `)
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true })
+
+    if (data) {
+      const withTotals: Request[] = data.map((r: any) => ({
+        ...r,
+        tip_total: (r.tips ?? [])
+          .filter((t: any) => t.status === 'held' || t.status === 'captured')
+          .reduce((sum: number, t: any) => sum + t.amount_cents, 0),
+      }))
+      setRequests(withTotals)
+    }
+  }, [sessionId])
+
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/signup'); return }
+
+      const { data: sessionData } = await supabase
+        .from('sessions')
+        .select('id, venue_name, started_at, status, band_id')
+        .eq('id', sessionId)
+        .single()
+
+      if (!sessionData) { router.push('/dashboard'); return }
+      setSession(sessionData)
+
+      const { data: bandData } = await supabase
+        .from('bands')
+        .select('slug')
+        .eq('id', sessionData.band_id)
+        .single()
+
+      if (bandData) setBandSlug(bandData.slug)
+
+      await fetchRequests()
+      setLoading(false)
+    }
+    load()
+  }, [sessionId, router, fetchRequests])
+
+  // Real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel(`session-${sessionId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'requests',
+        filter: `session_id=eq.${sessionId}`,
+      }, () => { fetchRequests() })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tips',
+      }, () => { fetchRequests() })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [sessionId, fetchRequests])
+
+  async function handleAccept(requestId: string) {
+    await supabase
+      .from('requests')
+      .update({ status: 'accepted' })
+      .eq('id', requestId)
+    fetchRequests()
+  }
+
+  async function handlePlayed(requestId: string) {
+    await supabase
+      .from('requests')
+      .update({ status: 'played', played_at: new Date().toISOString() })
+      .eq('id', requestId)
+    // TODO Phase 4: capture Stripe payment intents here
+    fetchRequests()
+  }
+
+  async function handleReject(requestId: string, reason: string) {
+    await supabase
+      .from('requests')
+      .update({ status: 'rejected', reject_reason: reason })
+      .eq('id', requestId)
+    // TODO Phase 4: refund Stripe payment intents here
+    setRejectingId(null)
+    fetchRequests()
+  }
+
+  async function handleEndSession() {
+    if (!confirm('End this session? All pending requests will be automatically refunded.')) return
+    setEnding(true)
+
+    // Reject all pending/accepted requests
+    await supabase
+      .from('requests')
+      .update({ status: 'rejected', reject_reason: 'not_tonight' })
+      .eq('session_id', sessionId)
+      .in('status', ['pending', 'accepted'])
+
+    await supabase
+      .from('sessions')
+      .update({ status: 'ended', ended_at: new Date().toISOString() })
+      .eq('id', sessionId)
+
+    // TODO Phase 4: sweep and refund all held Stripe payment intents
+
+    router.push('/dashboard')
+  }
+
+  const queueUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://holler.live'}/${bandSlug}`
+
+  const pending  = requests.filter(r => r.status === 'pending')
+  const accepted = requests.filter(r => r.status === 'accepted')
+  const played   = requests.filter(r => r.status === 'played')
+  const rejected = requests.filter(r => r.status === 'rejected')
+
+  if (loading) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p className="label">Loading session...</p>
+      </main>
+    )
+  }
+
+  return (
+    <main style={{ minHeight: '100vh', padding: '24px', maxWidth: '680px', margin: '0 auto' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <HollerLogo variant="wordmark" size={36} />
+        <button
+          onClick={handleEndSession}
+          className="btn-ghost"
+          style={{ color: 'var(--danger)', borderColor: 'var(--danger)', opacity: ending ? 0.5 : 1 }}
+          disabled={ending}
+        >
+          {ending ? 'Ending...' : 'End session'}
+        </button>
+      </div>
+
+      {/* Session info */}
+      <div style={{ marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid var(--border)' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+          {session?.venue_name
+            ? <><span style={{ color: 'var(--text)' }}>{session.venue_name}</span> &nbsp;·&nbsp; </>
+            : null}
+          Started {session ? new Date(session.started_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}
+        </p>
+      </div>
+
+      {/* QR / Audience link */}
+      <div className="card" style={{ marginBottom: '28px', padding: '20px 24px' }}>
+        <p className="label" style={{ marginBottom: '10px' }}>Audience link</p>
+        <p style={{ fontSize: '18px', color: 'var(--accent)', letterSpacing: '0.02em', marginBottom: '12px', wordBreak: 'break-all' }}>
+          holler.live/{bandSlug}
+        </p>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.7' }}>
+          Point your audience here to send requests. Put this on screen or share it verbally.
+        </p>
+      </div>
+
+      {/* ACCEPTED — up next */}
+      {accepted.length > 0 && (
+        <div style={{ marginBottom: '32px' }}>
+          <p className="label-accent" style={{ marginBottom: '14px' }}>Up next ({accepted.length})</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {accepted.map(req => (
+              <RequestCard
+                key={req.id}
+                req={req}
+                onPlayed={() => handlePlayed(req.id)}
+                onRejectStart={() => setRejectingId(req.id)}
+                rejectingId={rejectingId}
+                onReject={(reason) => handleReject(req.id, reason)}
+                onRejectCancel={() => setRejectingId(null)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PENDING */}
+      <div style={{ marginBottom: '32px' }}>
+        <p className="label" style={{ marginBottom: '14px' }}>
+          Incoming {pending.length > 0 ? `(${pending.length})` : ''}
+        </p>
+        {pending.length === 0 ? (
+          <div className="card" style={{ padding: '32px 24px', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+              No requests yet — share your link with the audience.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {pending.map(req => (
+              <RequestCard
+                key={req.id}
+                req={req}
+                onAccept={() => handleAccept(req.id)}
+                onRejectStart={() => setRejectingId(req.id)}
+                rejectingId={rejectingId}
+                onReject={(reason) => handleReject(req.id, reason)}
+                onRejectCancel={() => setRejectingId(null)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* PLAYED */}
+      {played.length > 0 && (
+        <div style={{ marginBottom: '32px' }}>
+          <p className="label" style={{ marginBottom: '14px' }}>Played ({played.length})</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {played.map(req => (
+              <div key={req.id} className="card" style={{ padding: '14px 18px', opacity: 0.6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ fontSize: '14px' }}>{req.title}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{req.artist}</p>
+                </div>
+                {req.tip_total > 0 && (
+                  <p style={{ fontSize: '12px', color: 'var(--success)' }}>
+                    ${(req.tip_total / 100).toFixed(0)}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* REJECTED */}
+      {rejected.length > 0 && (
+        <div>
+          <p className="label" style={{ marginBottom: '14px' }}>Passed on ({rejected.length})</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {rejected.map(req => (
+              <div key={req.id} className="card" style={{ padding: '14px 18px', opacity: 0.4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ fontSize: '14px' }}>{req.title}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{req.artist}</p>
+                </div>
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {REJECT_REASONS.find(r => r.value === req.reject_reason)?.label ?? 'Passed'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+    </main>
+  )
+}
+
+// ── Request Card ──────────────────────────────────────────────
+function RequestCard({
+  req,
+  onAccept,
+  onPlayed,
+  onRejectStart,
+  rejectingId,
+  onReject,
+  onRejectCancel,
+}: {
+  req: Request
+  onAccept?: () => void
+  onPlayed?: () => void
+  onRejectStart: () => void
+  rejectingId: string | null
+  onReject: (reason: string) => void
+  onRejectCancel: () => void
+}) {
+  const isRejecting = rejectingId === req.id
+  const isAccepted = req.status === 'accepted'
+
+  return (
+    <div className="card" style={{ padding: '18px 20px' }}>
+      {/* Song info */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {req.title}
+          </p>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{req.artist}</p>
+        </div>
+        {req.tip_total > 0 && (
+          <div style={{ marginLeft: '12px', textAlign: 'right', flexShrink: 0 }}>
+            <p style={{ fontSize: '18px', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", lineHeight: 1 }}>
+              ${(req.tip_total / 100).toFixed(0)}
+            </p>
+            <p style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>IN TIPS</p>
+          </div>
+        )}
+      </div>
+
+      {/* Reject reason picker */}
+      {isRejecting ? (
+        <div>
+          <p className="label" style={{ marginBottom: '10px' }}>Why are you passing?</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+            {REJECT_REASONS.map(r => (
+              <button
+                key={r.value}
+                onClick={() => onReject(r.value)}
+                style={{
+                  background: 'var(--bg-raised)',
+                  border: '1px solid var(--border-warm)',
+                  color: 'var(--text)',
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: '13px',
+                  padding: '10px 14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.1s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--text-muted)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-warm)')}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={onRejectCancel} className="btn-ghost" style={{ width: '100%', fontSize: '11px' }}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {isAccepted ? (
+            <>
+              <button
+                onClick={onPlayed}
+                className="btn-primary"
+                style={{ flex: 1, fontSize: '15px', padding: '10px' }}
+              >
+                ✓ Mark as played
+              </button>
+              <button
+                onClick={onRejectStart}
+                className="btn-ghost"
+                style={{ fontSize: '11px', padding: '10px 14px' }}
+              >
+                Pass
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onAccept}
+                className="btn-primary"
+                style={{ flex: 1, fontSize: '15px', padding: '10px' }}
+              >
+                Accept
+              </button>
+              <button
+                onClick={onRejectStart}
+                className="btn-ghost"
+                style={{ fontSize: '11px', padding: '10px 14px' }}
+              >
+                Pass
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
