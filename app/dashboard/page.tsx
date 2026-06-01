@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import NavWordmark from '@/components/NavWordmark'
@@ -15,7 +15,7 @@ type Band = {
 }
 type Session = { id: string; venue_name: string | null; started_at: string; status: string }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [band, setBand] = useState<Band | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -326,5 +326,17 @@ export default function DashboardPage() {
       </div>
 
     </main>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p className="label">Loading...</p>
+      </main>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }
