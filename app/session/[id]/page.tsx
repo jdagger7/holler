@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
-import HollerLogo from '@/components/HollerLogo'
+import NavWordmark from '@/components/NavWordmark'
 import Modal from '@/components/Modal'
 import QRModal from '@/components/QRModal'
 
@@ -12,8 +12,6 @@ type Request = {
   title: string
   artist: string
   spotify_album_art_url: string | null
-  requester_email: string | null
-  requester_phone: string | null
   status: 'pending' | 'accepted' | 'played' | 'rejected'
   reject_reason: string | null
   created_at: string
@@ -52,12 +50,13 @@ export default function SessionPage() {
   const [copiedLink, setCopiedLink] = useState(false)
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://holler.live'
-  const queueUrl = `${appUrl}/${bandSlug}`
+  const queueUrl = bandSlug ? `${appUrl}/${bandSlug}` : ''
+  const displayUrl = bandSlug ? `holler.live/${bandSlug}` : '—'
 
   const fetchRequests = useCallback(async () => {
     const { data } = await supabase
       .from('requests')
-      .select('id, title, artist, spotify_album_art_url, requester_email, requester_phone, status, reject_reason, created_at, tips(amount_cents, status)')
+      .select('id, title, artist, spotify_album_art_url, status, reject_reason, created_at, tips(amount_cents, status)')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true })
 
@@ -76,19 +75,12 @@ export default function SessionPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/signup'); return }
-
       const { data: sessionData } = await supabase
-        .from('sessions')
-        .select('id, venue_name, started_at, ended_at, status, band_id')
-        .eq('id', sessionId)
-        .single()
-
+        .from('sessions').select('id, venue_name, started_at, ended_at, status, band_id')
+        .eq('id', sessionId).single()
       if (!sessionData) { router.push('/dashboard'); return }
       setSession(sessionData)
-
-      const { data: bandData } = await supabase
-        .from('bands').select('slug').eq('id', sessionData.band_id).single()
-
+      const { data: bandData } = await supabase.from('bands').select('slug').eq('id', sessionData.band_id).single()
       if (bandData) setBandSlug(bandData.slug)
       await fetchRequests()
       setLoading(false)
@@ -106,18 +98,18 @@ export default function SessionPage() {
     return () => { supabase.removeChannel(channel) }
   }, [sessionId, session, fetchRequests])
 
-  async function handleAccept(requestId: string) {
-    await supabase.from('requests').update({ status: 'accepted' }).eq('id', requestId)
+  async function handleAccept(id: string) {
+    await supabase.from('requests').update({ status: 'accepted' }).eq('id', id)
     fetchRequests()
   }
 
-  async function handlePlayed(requestId: string) {
-    await supabase.from('requests').update({ status: 'played', played_at: new Date().toISOString() }).eq('id', requestId)
+  async function handlePlayed(id: string) {
+    await supabase.from('requests').update({ status: 'played', played_at: new Date().toISOString() }).eq('id', id)
     fetchRequests()
   }
 
-  async function handleReject(requestId: string, reason: string) {
-    await supabase.from('requests').update({ status: 'rejected', reject_reason: reason }).eq('id', requestId)
+  async function handleReject(id: string, reason: string) {
+    await supabase.from('requests').update({ status: 'rejected', reject_reason: reason }).eq('id', id)
     setRejectingId(null)
     fetchRequests()
   }
@@ -159,7 +151,7 @@ export default function SessionPage() {
     return (
       <main style={{ minHeight: '100vh', padding: '24px 20px', maxWidth: '600px', margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <HollerLogo variant="wordmark" size={36} />
+          <NavWordmark size={36} />
           <a href="/dashboard" style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none' }}>← Dashboard</a>
         </div>
 
@@ -237,19 +229,14 @@ export default function SessionPage() {
         <QRModal url={queueUrl} bandName={session?.venue_name ?? bandSlug} onClose={() => setShowQR(false)} />
       )}
 
-      {/* Header — constrained so End Session never clips */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '12px' }}>
-        <HollerLogo variant="wordmark" size={32} />
-        <button
-          onClick={() => setShowEndModal(true)}
-          className="btn-ghost"
-          style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '11px', whiteSpace: 'nowrap', flexShrink: 0 }}
-        >
+        <NavWordmark size={32} />
+        <button onClick={() => setShowEndModal(true)} className="btn-ghost"
+          style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '11px', whiteSpace: 'nowrap', flexShrink: 0 }}>
           End session
         </button>
       </div>
 
-      {/* Session info */}
       <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {session?.venue_name && <><span style={{ color: 'var(--text)' }}>{session.venue_name}</span> &nbsp;·&nbsp; </>}
@@ -257,12 +244,17 @@ export default function SessionPage() {
         </p>
       </div>
 
-      {/* Audience link — show just the slug, not full URL */}
+      {/* Audience link — uses env var, clickable */}
       <div className="card" style={{ marginBottom: '24px', padding: '18px 20px' }}>
         <p className="label" style={{ marginBottom: '8px' }}>Audience link</p>
-        <p style={{ fontSize: '15px', color: 'var(--accent)', marginBottom: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {bandSlug ? `holler.live/${bandSlug}` : '—'}
-        </p>
+        <a
+          href={queueUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: '15px', color: 'var(--accent)', marginBottom: '14px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}
+        >
+          {displayUrl}
+        </a>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button className="btn-primary" style={{ flex: 1, fontSize: '14px', padding: '10px 12px' }} onClick={() => setShowQR(true)}>
             Show QR code
@@ -273,19 +265,17 @@ export default function SessionPage() {
         </div>
       </div>
 
-      {/* ACCEPTED */}
       {accepted.length > 0 && (
         <div style={{ marginBottom: '28px' }}>
           <p className="label-accent" style={{ marginBottom: '12px' }}>Up next ({accepted.length})</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {accepted.map(req => (
-              <RequestCard key={req.id} req={req} onPlayed={() => handlePlayed(req.id)} onRejectStart={() => setRejectingId(req.id)} rejectingId={rejectingId} onReject={(reason) => handleReject(req.id, reason)} onRejectCancel={() => setRejectingId(null)} />
+              <RequestCard key={req.id} req={req} onPlayed={() => handlePlayed(req.id)} onRejectStart={() => setRejectingId(req.id)} rejectingId={rejectingId} onReject={(r) => handleReject(req.id, r)} onRejectCancel={() => setRejectingId(null)} />
             ))}
           </div>
         </div>
       )}
 
-      {/* PENDING */}
       <div style={{ marginBottom: '28px' }}>
         <p className="label" style={{ marginBottom: '12px' }}>Incoming {pending.length > 0 ? `(${pending.length})` : ''}</p>
         {pending.length === 0 ? (
@@ -295,13 +285,12 @@ export default function SessionPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {pending.map(req => (
-              <RequestCard key={req.id} req={req} onAccept={() => handleAccept(req.id)} onRejectStart={() => setRejectingId(req.id)} rejectingId={rejectingId} onReject={(reason) => handleReject(req.id, reason)} onRejectCancel={() => setRejectingId(null)} />
+              <RequestCard key={req.id} req={req} onAccept={() => handleAccept(req.id)} onRejectStart={() => setRejectingId(req.id)} rejectingId={rejectingId} onReject={(r) => handleReject(req.id, r)} onRejectCancel={() => setRejectingId(null)} />
             ))}
           </div>
         )}
       </div>
 
-      {/* PLAYED */}
       {played.length > 0 && (
         <div style={{ marginBottom: '28px' }}>
           <p className="label" style={{ marginBottom: '12px' }}>Played ({played.length})</p>
@@ -319,7 +308,6 @@ export default function SessionPage() {
         </div>
       )}
 
-      {/* REJECTED */}
       {rejected.length > 0 && (
         <div>
           <p className="label" style={{ marginBottom: '12px' }}>Passed on ({rejected.length})</p>
@@ -343,13 +331,9 @@ export default function SessionPage() {
 }
 
 function RequestCard({ req, onAccept, onPlayed, onRejectStart, rejectingId, onReject, onRejectCancel }: {
-  req: Request
-  onAccept?: () => void
-  onPlayed?: () => void
-  onRejectStart: () => void
-  rejectingId: string | null
-  onReject: (reason: string) => void
-  onRejectCancel: () => void
+  req: Request; onAccept?: () => void; onPlayed?: () => void
+  onRejectStart: () => void; rejectingId: string | null
+  onReject: (r: string) => void; onRejectCancel: () => void
 }) {
   const isRejecting = rejectingId === req.id
   const isAccepted = req.status === 'accepted'
@@ -368,15 +352,13 @@ function RequestCard({ req, onAccept, onPlayed, onRejectStart, rejectingId, onRe
           </div>
         )}
       </div>
-
       {isRejecting ? (
         <div>
           <p className="label" style={{ marginBottom: '10px' }}>Why are you passing?</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
             {REJECT_REASONS.map(r => (
               <button key={r.value} onClick={() => onReject(r.value)}
-                style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-warm)', color: 'var(--text)', fontFamily: "'IBM Plex Mono', monospace", fontSize: '13px', padding: '12px 14px', textAlign: 'left', cursor: 'pointer', minHeight: '44px' }}
-              >
+                style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-warm)', color: 'var(--text)', fontFamily: "'IBM Plex Mono', monospace", fontSize: '13px', padding: '12px 14px', textAlign: 'left', cursor: 'pointer', minHeight: '44px' }}>
                 {r.label}
               </button>
             ))}

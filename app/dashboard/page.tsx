@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import HollerLogo from '@/components/HollerLogo'
+import NavWordmark from '@/components/NavWordmark'
 import Modal from '@/components/Modal'
 
 type Band = { id: string; name: string; slug: string; min_tip_cents: number }
@@ -16,6 +16,10 @@ export default function DashboardPage() {
   const [starting, setStarting] = useState(false)
   const [showVenueModal, setShowVenueModal] = useState(false)
   const [venueName, setVenueName] = useState('')
+  const [venuePlaceId, setVenuePlaceId] = useState<string | null>(null)
+  const [venueAddress, setVenueAddress] = useState<string | null>(null)
+  const venueInputRef = useRef<HTMLInputElement>(null)
+  const autocompleteRef = useRef<any>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -23,18 +27,12 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/signup'); return }
       const { data: bandData } = await supabase
-        .from('bands')
-        .select('id, name, slug, min_tip_cents')
-        .eq('user_id', user.id)
-        .single()
+        .from('bands').select('id, name, slug, min_tip_cents').eq('user_id', user.id).single()
       if (bandData) {
         setBand(bandData)
         const { data: sessionData } = await supabase
-          .from('sessions')
-          .select('id, venue_name, started_at, status')
-          .eq('band_id', bandData.id)
-          .order('started_at', { ascending: false })
-          .limit(10)
+          .from('sessions').select('id, venue_name, started_at, status')
+          .eq('band_id', bandData.id).order('started_at', { ascending: false }).limit(10)
         setSessions(sessionData ?? [])
       }
       setLoading(false)
@@ -42,8 +40,44 @@ export default function DashboardPage() {
     load()
   }, [router])
 
+  // Initialize Google Places autocomplete when modal opens
+  useEffect(() => {
+    if (!showVenueModal) return
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
+    if (!apiKey) return
+
+    function initAutocomplete() {
+      if (!venueInputRef.current || !(window as any).google) return
+      const autocomplete = new (window as any).google.maps.places.Autocomplete(
+        venueInputRef.current,
+        { types: ['establishment'], fields: ['name', 'place_id', 'formatted_address'] }
+      )
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace()
+        if (place.name) {
+          setVenueName(place.name)
+          setVenuePlaceId(place.place_id ?? null)
+          setVenueAddress(place.formatted_address ?? null)
+        }
+      })
+      autocompleteRef.current = autocomplete
+    }
+
+    if ((window as any).google?.maps) {
+      initAutocomplete()
+    } else {
+      const script = document.createElement('script')
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`
+      script.async = true
+      script.onload = initAutocomplete
+      document.head.appendChild(script)
+    }
+  }, [showVenueModal])
+
   async function handleStartSession() {
     setVenueName('')
+    setVenuePlaceId(null)
+    setVenueAddress(null)
     setShowVenueModal(true)
   }
 
@@ -54,9 +88,14 @@ export default function DashboardPage() {
 
     const { data, error } = await supabase
       .from('sessions')
-      .insert({ band_id: band.id, venue_name: venueName.trim() || null, status: 'active' })
-      .select('id')
-      .single()
+      .insert({
+        band_id: band.id,
+        venue_name: venueName.trim() || null,
+        venue_place_id: venuePlaceId,
+        venue_address: venueAddress,
+        status: 'active',
+      })
+      .select('id').single()
 
     if (error || !data) {
       alert('Something went wrong starting the session. Try again.')
@@ -84,21 +123,24 @@ export default function DashboardPage() {
   return (
     <main style={{ minHeight: '100vh', padding: '40px 24px', maxWidth: '600px', margin: '0 auto' }}>
 
-      {/* Venue modal */}
       {showVenueModal && (
         <Modal title="Starting a session" onClose={() => setShowVenueModal(false)}>
           <h2 style={{ fontSize: '22px', marginBottom: '20px' }}>Where are you playing?</h2>
           <div style={{ marginBottom: '20px' }}>
             <label className="label" style={{ display: 'block', marginBottom: '10px' }}>Venue name</label>
             <input
+              ref={venueInputRef}
               className="input"
               type="text"
               value={venueName}
-              onChange={e => setVenueName(e.target.value)}
+              onChange={e => { setVenueName(e.target.value); setVenuePlaceId(null); setVenueAddress(null) }}
               placeholder="e.g. Robert's Western World"
               autoFocus
               onKeyDown={e => { if (e.key === 'Enter') confirmStartSession() }}
             />
+            {venueAddress && (
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>{venueAddress}</p>
+            )}
             <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
               Optional — shown to your audience on the request page.
             </p>
@@ -107,15 +149,13 @@ export default function DashboardPage() {
             <button className="btn-primary" style={{ flex: 1 }} onClick={confirmStartSession}>
               Start session →
             </button>
-            <button className="btn-ghost" onClick={() => setShowVenueModal(false)}>
-              Cancel
-            </button>
+            <button className="btn-ghost" onClick={() => setShowVenueModal(false)}>Cancel</button>
           </div>
         </Modal>
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <HollerLogo variant="wordmark" size={48} />
+        <NavWordmark size={48} />
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <a href="/settings" className="btn-ghost" style={{ textDecoration: 'none' }}>Settings</a>
           <button onClick={handleSignOut} className="btn-ghost">Sign out</button>
@@ -127,13 +167,13 @@ export default function DashboardPage() {
       </div>
 
       <div style={{ marginBottom: '36px' }}>
-        <p className="label" style={{ marginBottom: '14px' }}>Your outfit</p>
+        <p className="label" style={{ marginBottom: '14px' }}>Your act</p>
         {band ? (
           <div className="card-ornate">
             <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
             <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-              <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', gap: '12px' }}>
+              <div style={{ minWidth: 0 }}>
                 <h2 style={{ fontSize: '26px', marginBottom: '6px' }}>{band.name}</h2>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   Min tip: <span style={{ color: 'var(--accent)' }}>${band.min_tip_cents / 100}</span>
@@ -141,7 +181,16 @@ export default function DashboardPage() {
                   <a href="/settings" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>change</a>
                 </p>
               </div>
-              <span className="label-accent" style={{ fontSize: '9px', border: '1px solid var(--accent-dim)', padding: '4px 8px' }}>✦ Ready</span>
+              <span className="label-accent" style={{
+                fontSize: '9px',
+                border: '1px solid var(--accent-dim)',
+                padding: '4px 8px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                alignSelf: 'flex-start',
+              }}>
+                ✦ Ready
+              </span>
             </div>
             <div className="star-divider" style={{ marginBottom: '20px' }}>
               <span style={{ color: 'var(--border-bright)', fontSize: '8px' }}>✦</span>
@@ -156,12 +205,7 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              <button
-                className="btn-primary"
-                style={{ width: '100%', opacity: starting ? 0.6 : 1 }}
-                onClick={handleStartSession}
-                disabled={starting}
-              >
+              <button className="btn-primary" style={{ width: '100%', opacity: starting ? 0.6 : 1 }} onClick={handleStartSession} disabled={starting}>
                 {starting ? 'Starting...' : "Start tonight's session →"}
               </button>
             )}
@@ -174,7 +218,7 @@ export default function DashboardPage() {
               Before the requests come rollin' in, we need to know who's playing.
             </p>
             <a href="/setup" className="btn-primary" style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}>
-              Set up your band
+              Set up your act
             </a>
           </div>
         )}
@@ -189,11 +233,7 @@ export default function DashboardPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {sessions.filter(s => s.status !== 'active').map(session => (
-              <a
-                key={session.id}
-                href={`/session/${session.id}`}
-                style={{ textDecoration: 'none' }}
-              >
+              <a key={session.id} href={`/session/${session.id}`} style={{ textDecoration: 'none' }}>
                 <div className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
                   <div>
                     <p style={{ fontSize: '13px', marginBottom: '2px', color: 'var(--text)' }}>{session.venue_name ?? 'No venue set'}</p>

@@ -79,7 +79,7 @@ export default function SignupPage() {
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: '16px' }}>
               <label className="label" style={{ display: 'block', marginBottom: '10px' }}>
-                Band email
+                Your contact email
               </label>
               <input
                 className="input"
@@ -87,11 +87,11 @@ export default function SignupPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="your@band.com"
+                placeholder="your@email.com"
                 autoFocus
               />
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.7' }}>
-                New or returning — we'll send you a sign-in link either way.
+                Doesn't need to be an official act email — just yours. New or returning, we'll send a sign-in link either way.
               </p>
             </div>
 
@@ -105,10 +105,8 @@ export default function SignupPage() {
           </form>
         </div>
 
-        {/* Bottom tagline — readable color, not dim */}
         <p style={{ marginTop: '24px', color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.7' }}>
-          Looking to request a song?{' '}
-          <span style={{ color: 'var(--text-muted)' }}>Scan the QR code at the venue.</span>
+          Looking to request a song? Scan the QR code at the venue.
         </p>
 
       </div>
