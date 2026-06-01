@@ -7,16 +7,19 @@ import HollerLogo from '@/components/HollerLogo'
 import ContactPrompt from '@/components/ContactPrompt'
 import { useRequesterContact } from '@/hooks/useRequesterContact'
 
-type Band = { id: string; name: string; slug: string }
+type Band = { id: string; name: string; slug: string; min_tip_cents: number }
 type Session = { id: string; venue_name: string | null; status: string }
+
 type QueueRequest = {
   id: string
   title: string
   artist: string
-  status: string
+  spotify_album_art_url: string | null
+  status: 'pending' | 'accepted' | 'played' | 'rejected'
   tip_total: number
   tip_count: number
 }
+
 type SpotifyTrack = {
   id: string
   title: string
@@ -25,12 +28,11 @@ type SpotifyTrack = {
   album_art: string | null
 }
 
-type Step = 'queue' | 'search' | 'confirm' | 'submitted'
+type Step = 'queue' | 'search' | 'confirm' | 'boost' | 'submitted'
 
 export default function RequesterPage() {
   const params = useParams()
   const slug = params.slug as string
-
   const { contact, setContact, clearContact, loaded: contactLoaded } = useRequesterContact()
 
   const [band, setBand] = useState<Band | null>(null)
@@ -48,8 +50,11 @@ export default function RequesterPage() {
   const [freeTextTitle, setFreeTextTitle] = useState('')
   const [freeTextArtist, setFreeTextArtist] = useState('')
 
+  // Boost state — boosting an existing request
+  const [boostingRequest, setBoostingRequest] = useState<QueueRequest | null>(null)
+
   // Tip state
-  const [tipAmount, setTipAmount] = useState<number>(5)
+  const [tipAmount, setTipAmount] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -57,29 +62,46 @@ export default function RequesterPage() {
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const minTip = band ? band.min_tip_cents / 100 : 5
+
   const fetchQueue = useCallback(async (sessionId: string) => {
     const { data } = await supabase
       .from('requests')
-      .select('id, title, artist, status, tips(amount_cents, status)')
+      .select('id, title, artist, spotify_album_art_url, status, tips(amount_cents, status)')
       .eq('session_id', sessionId)
-      .in('status', ['pending', 'accepted'])
       .order('created_at', { ascending: true })
 
     if (data) {
-      const withTotals: QueueRequest[] = data.map((r: any) => {
-        const activeTips = (r.tips ?? []).filter((t: any) =>
-          t.status === 'held' || t.status === 'captured'
-        )
-        return {
-          id: r.id,
-          title: r.title,
-          artist: r.artist,
-          status: r.status,
-          tip_total: activeTips.reduce((s: number, t: any) => s + t.amount_cents, 0),
-          tip_count: activeTips.length,
+      // Merge duplicate songs (same title+artist) into single entries
+      const merged = new Map<string, QueueRequest>()
+      for (const r of data as any[]) {
+        const key = `${r.title.toLowerCase()}||${r.artist.toLowerCase()}`
+        const activeTips = (r.tips ?? []).filter((t: any) => t.status === 'held' || t.status === 'captured')
+        const tipTotal = activeTips.reduce((s: number, t: any) => s + t.amount_cents, 0)
+
+        if (merged.has(key)) {
+          const existing = merged.get(key)!
+          existing.tip_total += tipTotal
+          existing.tip_count += activeTips.length
+          // Prefer higher-status: accepted > pending > played > rejected
+          const statusRank: Record<string, number> = { accepted: 3, pending: 2, played: 1, rejected: 0 }
+          if ((statusRank[r.status] ?? 0) > (statusRank[existing.status] ?? 0)) {
+            existing.status = r.status
+            existing.id = r.id // use the most recent/relevant id for boost
+          }
+        } else {
+          merged.set(key, {
+            id: r.id,
+            title: r.title,
+            artist: r.artist,
+            spotify_album_art_url: r.spotify_album_art_url,
+            status: r.status,
+            tip_total: tipTotal,
+            tip_count: activeTips.length,
+          })
         }
-      })
-      setQueue(withTotals)
+      }
+      setQueue(Array.from(merged.values()))
     }
   }, [])
 
@@ -87,7 +109,7 @@ export default function RequesterPage() {
     async function load() {
       const { data: bandData } = await supabase
         .from('bands')
-        .select('id, name, slug')
+        .select('id, name, slug, min_tip_cents')
         .eq('slug', slug)
         .single()
 
@@ -105,38 +127,24 @@ export default function RequesterPage() {
         setSession(sessionData)
         await fetchQueue(sessionData.id)
       }
-
       setLoading(false)
     }
     load()
   }, [slug, fetchQueue])
 
-  // Real-time queue updates
   useEffect(() => {
     if (!session) return
     const channel = supabase
       .channel(`queue-${session.id}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'requests',
-        filter: `session_id=eq.${session.id}`,
-      }, () => fetchQueue(session.id))
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'tips',
-      }, () => fetchQueue(session.id))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'requests', filter: `session_id=eq.${session.id}` }, () => fetchQueue(session.id))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tips' }, () => fetchQueue(session.id))
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [session, fetchQueue])
 
-  // Spotify search with debounce
   useEffect(() => {
     if (freeTextMode) return
     if (searchQuery.trim().length < 2) { setSearchResults([]); return }
-
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
     searchTimeout.current = setTimeout(async () => {
       setSearching(true)
@@ -144,57 +152,72 @@ export default function RequesterPage() {
         const res = await fetch(`/api/spotify-search?q=${encodeURIComponent(searchQuery)}`)
         const data = await res.json()
         setSearchResults(data.tracks ?? [])
-      } catch {
-        setSearchResults([])
-      }
+      } catch { setSearchResults([]) }
       setSearching(false)
     }, 350)
-
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current) }
   }, [searchQuery, freeTextMode])
 
-  async function handleSubmit() {
+  function getDefaultTipAmounts() {
+    const min = minTip
+    const presets = [min, min * 2, min * 4].map(v => Math.ceil(v))
+    return [...new Set(presets)]
+  }
+
+  async function handleSubmit(isBoost = false) {
     if (!session || !band || !contact) return
 
-    const finalAmount = tipAmount === 0
+    const finalAmount = tipAmount === null
       ? Math.round(parseFloat(customAmount) * 100)
       : tipAmount * 100
-    if (!finalAmount || finalAmount < 500) { setSubmitError('Minimum tip is $5.'); return }
+
+    if (!finalAmount || finalAmount < band.min_tip_cents) {
+      setSubmitError(`Minimum tip is $${minTip}.`)
+      return
+    }
 
     setSubmitting(true)
     setSubmitError('')
 
-    const title = freeTextMode ? freeTextTitle.trim() : selectedSong!.title
-    const artist = freeTextMode ? freeTextArtist.trim() : selectedSong!.artist
-    const spotify_track_id = freeTextMode ? null : selectedSong!.id
-    const spotify_album_art_url = freeTextMode ? null : selectedSong!.album_art
+    let requestId: string
 
-    const { data: requestData, error: requestError } = await supabase
-      .from('requests')
-      .insert({
-        session_id: session.id,
-        title,
-        artist,
-        spotify_track_id,
-        spotify_album_art_url,
-        requester_email: contact.type === 'email' ? contact.value : null,
-        requester_phone: contact.type === 'phone' ? contact.value : null,
-        status: 'pending',
-      })
-      .select('id')
-      .single()
+    if (isBoost && boostingRequest) {
+      // Add tip to existing request
+      requestId = boostingRequest.id
+    } else {
+      const title = freeTextMode ? freeTextTitle.trim() : selectedSong!.title
+      const artist = freeTextMode ? freeTextArtist.trim() : selectedSong!.artist
+      const spotify_track_id = freeTextMode ? null : selectedSong!.id
+      const spotify_album_art_url = freeTextMode ? null : selectedSong!.album_art
 
-    if (requestError || !requestData) {
-      setSubmitError('Something went wrong. Please try again.')
-      setSubmitting(false)
-      return
+      const { data: requestData, error: requestError } = await supabase
+        .from('requests')
+        .insert({
+          session_id: session.id,
+          title,
+          artist,
+          spotify_track_id,
+          spotify_album_art_url,
+          requester_email: contact.type === 'email' ? contact.value : null,
+          requester_phone: contact.type === 'phone' ? contact.value : null,
+          status: 'pending',
+        })
+        .select('id')
+        .single()
+
+      if (requestError || !requestData) {
+        setSubmitError('Something went wrong. Please try again.')
+        setSubmitting(false)
+        return
+      }
+      requestId = requestData.id
     }
 
     const token = crypto.randomUUID()
     const { error: tipError } = await supabase
       .from('tips')
       .insert({
-        request_id: requestData.id,
+        request_id: requestId,
         amount_cents: finalAmount,
         requester_email: contact.type === 'email' ? contact.value : null,
         requester_phone: contact.type === 'phone' ? contact.value : null,
@@ -204,7 +227,7 @@ export default function RequesterPage() {
       })
 
     if (tipError) {
-      setSubmitError('Something went wrong saving your tip. Please try again.')
+      setSubmitError('Something went wrong. Please try again.')
       setSubmitting(false)
       return
     }
@@ -214,19 +237,27 @@ export default function RequesterPage() {
     setSubmitting(false)
   }
 
+  function handleBoost(req: QueueRequest) {
+    setBoostingRequest(req)
+    setTipAmount(minTip)
+    setCustomAmount('')
+    setSubmitError('')
+    setStep('boost')
+  }
+
   function resetRequest() {
     setStep('queue')
     setSelectedSong(null)
+    setBoostingRequest(null)
     setFreeTextMode(false)
     setFreeTextTitle('')
     setFreeTextArtist('')
     setSearchQuery('')
-    setTipAmount(5)
+    setTipAmount(null)
     setCustomAmount('')
     setSubmitError('')
   }
 
-  // Wait for localStorage to load before rendering
   if (!contactLoaded || loading) {
     return (
       <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -246,9 +277,8 @@ export default function RequesterPage() {
     )
   }
 
-  // Show contact prompt if no contact saved yet
   if (!contact) {
-    return <ContactPrompt bandName={band.name} onConfirm={(value, type) => setContact({ value, type })} />
+    return <ContactPrompt onConfirm={(value, type) => setContact({ value, type })} />
   }
 
   if (!session) {
@@ -267,48 +297,152 @@ export default function RequesterPage() {
     )
   }
 
+  const tipAmounts = getDefaultTipAmounts()
+  const pendingQueue = queue.filter(r => r.status === 'pending')
+  const acceptedQueue = queue.filter(r => r.status === 'accepted')
+  const playedQueue = queue.filter(r => r.status === 'played')
+
+  // ── TIP AMOUNT PICKER (shared between confirm and boost) ──
+  function TipPicker() {
+    return (
+      <div style={{ marginBottom: '24px' }}>
+        <p className="label" style={{ marginBottom: '12px' }}>How much?</p>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${tipAmounts.length + 1}, 1fr)`, gap: '8px', marginBottom: '12px' }}>
+          {tipAmounts.map(amt => (
+            <button
+              key={amt}
+              onClick={() => { setTipAmount(amt); setCustomAmount('') }}
+              style={{
+                background: tipAmount === amt ? 'var(--accent)' : 'var(--bg-raised)',
+                border: `1px solid ${tipAmount === amt ? 'var(--accent)' : 'var(--border-warm)'}`,
+                color: tipAmount === amt ? '#0e0b08' : 'var(--text)',
+                fontFamily: "'Teko', sans-serif",
+                fontSize: '20px',
+                fontWeight: 500,
+                padding: '12px 8px',
+                cursor: 'pointer',
+                transition: 'all 0.1s',
+              }}
+            >
+              ${amt}
+            </button>
+          ))}
+          <button
+            onClick={() => { setTipAmount(null); setCustomAmount('') }}
+            style={{
+              background: tipAmount === null ? 'var(--accent)' : 'var(--bg-raised)',
+              border: `1px solid ${tipAmount === null ? 'var(--accent)' : 'var(--border-warm)'}`,
+              color: tipAmount === null ? '#0e0b08' : 'var(--text-muted)',
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              padding: '12px 4px',
+              cursor: 'pointer',
+              transition: 'all 0.1s',
+            }}
+          >
+            OTHER
+          </button>
+        </div>
+        {tipAmount === null && (
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '15px' }}>$</span>
+            <input
+              className="input"
+              type="number"
+              min={minTip}
+              step="1"
+              value={customAmount}
+              onChange={e => setCustomAmount(e.target.value)}
+              placeholder={String(minTip)}
+              style={{ paddingLeft: '28px' }}
+              autoFocus
+            />
+          </div>
+        )}
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+          Minimum ${minTip}. Only charged if the song gets played.
+        </p>
+      </div>
+    )
+  }
+
   // ── SUBMITTED ──────────────────────────────────────────────
   if (step === 'submitted') {
+    const songTitle = boostingRequest?.title ?? (freeTextMode ? freeTextTitle : selectedSong?.title)
+    const songArtist = boostingRequest?.artist ?? (freeTextMode ? freeTextArtist : selectedSong?.artist)
+
     return (
       <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
         <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
           <div className="card-ornate" style={{ padding: '40px 32px' }}>
             <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
             <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
-            <p className="label-accent" style={{ marginBottom: '16px' }}>Request sent</p>
-            <h2 style={{ fontSize: '26px', marginBottom: '8px' }}>
-              {freeTextMode ? freeTextTitle : selectedSong?.title}
-            </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
-              {freeTextMode ? freeTextArtist : selectedSong?.artist}
+            <p className="label-accent" style={{ marginBottom: '16px' }}>
+              {boostingRequest ? 'Tip added' : 'Request sent'}
             </p>
+            <h2 style={{ fontSize: '26px', marginBottom: '8px' }}>{songTitle}</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>{songArtist}</p>
             <div className="star-divider" style={{ marginBottom: '24px' }}>
               <span style={{ color: 'var(--star)' }}>✦</span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', marginBottom: '24px' }}>
-              Your tip is held until the song is played. If it doesn't get played, you'll get your money back automatically.
+              Your tip is held until the song is played. No play = full refund.
             </p>
             <a
               href={`/track/${trackingToken}`}
-              style={{
-                display: 'block',
-                padding: '12px',
-                background: 'var(--accent-pale)',
-                border: '1px solid var(--accent-dim)',
-                color: 'var(--accent)',
-                fontSize: '12px',
-                letterSpacing: '0.08em',
-                textDecoration: 'none',
-                marginBottom: '16px',
-              }}
+              style={{ display: 'block', padding: '12px', background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', color: 'var(--accent)', fontSize: '12px', letterSpacing: '0.08em', textDecoration: 'none', marginBottom: '12px' }}
             >
               Track your request →
             </a>
             <button onClick={resetRequest} className="btn-ghost" style={{ width: '100%', fontSize: '11px' }}>
-              Request another song
+              ← Back to queue
             </button>
           </div>
         </div>
+      </main>
+    )
+  }
+
+  // ── BOOST ─────────────────────────────────────────────────
+  if (step === 'boost' && boostingRequest) {
+    return (
+      <main style={{ minHeight: '100vh', padding: '32px 20px', maxWidth: '480px', margin: '0 auto' }}>
+        <button onClick={resetRequest} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '28px', padding: 0 }}>
+          ← Back
+        </button>
+
+        <h2 style={{ fontSize: '22px', marginBottom: '20px' }}>Add to this request</h2>
+
+        <div className="card" style={{ marginBottom: '24px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+          {boostingRequest.spotify_album_art_url && (
+            <img src={boostingRequest.spotify_album_art_url} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', flexShrink: 0 }} />
+          )}
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{boostingRequest.title}</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{boostingRequest.artist}</p>
+            {boostingRequest.tip_total > 0 && (
+              <p style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '4px' }}>
+                ${(boostingRequest.tip_total / 100).toFixed(0)} already in the pool
+              </p>
+            )}
+          </div>
+        </div>
+
+        <TipPicker />
+
+        {submitError && <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '16px' }}>{submitError}</p>}
+
+        <button
+          className="btn-primary"
+          style={{ width: '100%', opacity: submitting ? 0.6 : 1 }}
+          onClick={() => handleSubmit(true)}
+          disabled={submitting}
+        >
+          {submitting ? 'Adding...' : 'Add to request →'}
+        </button>
+
+        <ContactFooter contact={contact.value} onClear={clearContact} />
       </main>
     )
   }
@@ -319,136 +453,64 @@ export default function RequesterPage() {
       ? { title: freeTextTitle, artist: freeTextArtist, album_art: null }
       : selectedSong!
 
-    const existingRequest = queue.find(
-      r => r.title.toLowerCase() === song.title.toLowerCase() &&
-           r.artist.toLowerCase() === song.artist.toLowerCase()
+    const rejectedMatch = queue.find(
+      r => r.status === 'rejected' &&
+        r.title.toLowerCase() === song.title.toLowerCase() &&
+        r.artist.toLowerCase() === song.artist.toLowerCase()
+    )
+    const existingActive = queue.find(
+      r => r.status !== 'rejected' &&
+        r.title.toLowerCase() === song.title.toLowerCase() &&
+        r.artist.toLowerCase() === song.artist.toLowerCase()
     )
 
     return (
       <main style={{ minHeight: '100vh', padding: '32px 20px', maxWidth: '480px', margin: '0 auto' }}>
-
-        <button
-          onClick={() => setStep('search')}
-          style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '28px', padding: 0 }}
-        >
+        <button onClick={() => setStep('search')} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '28px', padding: 0 }}>
           ← Change song
         </button>
 
-        {/* Selected song */}
-        <div className="card" style={{ marginBottom: '24px', display: 'flex', gap: '14px', alignItems: 'center' }}>
+        <div className="card" style={{ marginBottom: '20px', display: 'flex', gap: '14px', alignItems: 'center' }}>
           {song.album_art && (
             <img src={song.album_art} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', flexShrink: 0 }} />
           )}
           <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {song.title}
-            </p>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {song.artist}
-            </p>
+            <p style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.artist}</p>
           </div>
         </div>
 
-        {/* Existing tip pool */}
-        {existingRequest && existingRequest.tip_total > 0 && (
+        {/* Warnings */}
+        {rejectedMatch && (
+          <div style={{ marginBottom: '20px', padding: '14px 18px', background: 'var(--bg-raised)', border: '1px solid var(--border-warm)' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.7' }}>
+              The band passed on this song earlier. You can still request it — they may change their mind with enough support.
+            </p>
+          </div>
+        )}
+
+        {existingActive && existingActive.tip_total > 0 && (
           <div style={{ marginBottom: '20px', padding: '14px 18px', background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)' }}>
             <p style={{ fontSize: '13px', color: 'var(--accent)', lineHeight: '1.7' }}>
-              {existingRequest.tip_count} {existingRequest.tip_count === 1 ? 'person has' : 'people have'} already tipped{' '}
-              <strong>${(existingRequest.tip_total / 100).toFixed(0)}</strong> for this song. Add yours to boost it.
+              {existingActive.tip_count} {existingActive.tip_count === 1 ? 'person has' : 'people have'} already tipped <strong>${(existingActive.tip_total / 100).toFixed(0)}</strong> for this song.
             </p>
           </div>
         )}
 
-        {/* Tip amount */}
-        <div style={{ marginBottom: '24px' }}>
-          <p className="label" style={{ marginBottom: '12px' }}>How much?</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-            {[5, 10, 20].map(amt => (
-              <button
-                key={amt}
-                onClick={() => { setTipAmount(amt); setCustomAmount('') }}
-                style={{
-                  background: tipAmount === amt ? 'var(--accent)' : 'var(--bg-raised)',
-                  border: `1px solid ${tipAmount === amt ? 'var(--accent)' : 'var(--border-warm)'}`,
-                  color: tipAmount === amt ? '#0e0b08' : 'var(--text)',
-                  fontFamily: "'Teko', sans-serif",
-                  fontSize: '20px',
-                  fontWeight: 500,
-                  padding: '12px 8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.1s',
-                }}
-              >
-                ${amt}
-              </button>
-            ))}
-            <button
-              onClick={() => { setTipAmount(0); setCustomAmount('') }}
-              style={{
-                background: tipAmount === 0 ? 'var(--accent)' : 'var(--bg-raised)',
-                border: `1px solid ${tipAmount === 0 ? 'var(--accent)' : 'var(--border-warm)'}`,
-                color: tipAmount === 0 ? '#0e0b08' : 'var(--text-muted)',
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: '11px',
-                letterSpacing: '0.08em',
-                padding: '12px 4px',
-                cursor: 'pointer',
-                transition: 'all 0.1s',
-              }}
-            >
-              OTHER
-            </button>
-          </div>
-          {tipAmount === 0 && (
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '15px' }}>$</span>
-              <input
-                className="input"
-                type="number"
-                min="5"
-                step="1"
-                value={customAmount}
-                onChange={e => setCustomAmount(e.target.value)}
-                placeholder="5"
-                style={{ paddingLeft: '28px' }}
-              />
-            </div>
-          )}
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
-            Minimum $5. You're only charged if the song gets played.
-          </p>
-        </div>
+        <TipPicker />
 
-        {/* Contact display — already saved, just show it */}
-        <div style={{ marginBottom: '28px', padding: '12px 16px', background: 'var(--bg-raised)', border: '1px solid var(--border-warm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <p className="label" style={{ marginBottom: '3px' }}>Receipt goes to</p>
-            <p style={{ fontSize: '14px' }}>{contact.value}</p>
-          </div>
-          <button
-            onClick={clearContact}
-            style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', letterSpacing: '0.06em', textDecoration: 'underline', padding: 0 }}
-          >
-            Not you?
-          </button>
-        </div>
-
-        {submitError && (
-          <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '16px' }}>{submitError}</p>
-        )}
+        {submitError && <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '16px' }}>{submitError}</p>}
 
         <button
           className="btn-primary"
           style={{ width: '100%', opacity: submitting ? 0.6 : 1 }}
-          onClick={handleSubmit}
+          onClick={() => handleSubmit(false)}
           disabled={submitting}
         >
           {submitting ? 'Sending...' : 'Send request →'}
         </button>
 
-        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '16px', textAlign: 'center', lineHeight: '1.7' }}>
-          Your tip is held — not charged — until the song is played. No play = full refund.
-        </p>
+        <ContactFooter contact={contact.value} onClear={clearContact} />
       </main>
     )
   }
@@ -457,11 +519,7 @@ export default function RequesterPage() {
   if (step === 'search') {
     return (
       <main style={{ minHeight: '100vh', padding: '32px 20px', maxWidth: '480px', margin: '0 auto' }}>
-
-        <button
-          onClick={() => setStep('queue')}
-          style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '28px', padding: 0 }}
-        >
+        <button onClick={() => setStep('queue')} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '28px', padding: 0 }}>
           ← Back
         </button>
 
@@ -469,62 +527,38 @@ export default function RequesterPage() {
 
         {!freeTextMode ? (
           <>
-            <div style={{ position: 'relative', marginBottom: '16px' }}>
-              <input
-                className="input"
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search for a song..."
-                autoFocus
-              />
-              {searching && (
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>Searching...</p>
-              )}
-            </div>
+            <input
+              className="input"
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search for a song..."
+              autoFocus
+              style={{ marginBottom: '12px' }}
+            />
+            {searching && <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>Searching...</p>}
 
             {searchResults.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
                 {searchResults.map(track => (
                   <button
                     key={track.id}
-                    onClick={() => { setSelectedSong(track); setStep('confirm') }}
-                    style={{
-                      background: 'var(--bg-raised)',
-                      border: '1px solid var(--border-warm)',
-                      color: 'var(--text)',
-                      padding: '12px 14px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      gap: '12px',
-                      alignItems: 'center',
-                      textAlign: 'left',
-                      transition: 'border-color 0.1s',
-                      width: '100%',
-                    }}
+                    onClick={() => { setSelectedSong(track); setTipAmount(minTip); setStep('confirm') }}
+                    style={{ background: 'var(--bg-raised)', border: '1px solid var(--border-warm)', color: 'var(--text)', padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: '12px', alignItems: 'center', textAlign: 'left', width: '100%', transition: 'border-color 0.1s' }}
                     onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--text-muted)')}
                     onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-warm)')}
                   >
-                    {track.album_art && (
-                      <img src={track.album_art} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0 }} />
-                    )}
+                    {track.album_art && <img src={track.album_art} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0 }} />}
                     <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: '14px', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {track.title}
-                      </p>
-                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {track.artist} · {track.album}
-                      </p>
+                      <p style={{ fontSize: '14px', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</p>
+                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist} · {track.album}</p>
                     </div>
                   </button>
                 ))}
               </div>
             )}
 
-            <button
-              onClick={() => setFreeTextMode(true)}
-              style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', letterSpacing: '0.06em', padding: 0, textDecoration: 'underline' }}
-            >
+            <button onClick={() => setFreeTextMode(true)} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: 0, textDecoration: 'underline' }}>
               Can't find it? Enter manually
             </button>
           </>
@@ -532,37 +566,21 @@ export default function RequesterPage() {
           <>
             <div style={{ marginBottom: '16px' }}>
               <label className="label" style={{ display: 'block', marginBottom: '8px' }}>Song title</label>
-              <input
-                className="input"
-                type="text"
-                value={freeTextTitle}
-                onChange={e => setFreeTextTitle(e.target.value)}
-                placeholder="e.g. Brown Eyed Girl"
-                autoFocus
-              />
+              <input className="input" type="text" value={freeTextTitle} onChange={e => setFreeTextTitle(e.target.value)} placeholder="e.g. Brown Eyed Girl" autoFocus />
             </div>
             <div style={{ marginBottom: '24px' }}>
               <label className="label" style={{ display: 'block', marginBottom: '8px' }}>Artist</label>
-              <input
-                className="input"
-                type="text"
-                value={freeTextArtist}
-                onChange={e => setFreeTextArtist(e.target.value)}
-                placeholder="e.g. Van Morrison"
-              />
+              <input className="input" type="text" value={freeTextArtist} onChange={e => setFreeTextArtist(e.target.value)} placeholder="e.g. Van Morrison" />
             </div>
             <button
-              onClick={() => { if (freeTextTitle.trim() && freeTextArtist.trim()) setStep('confirm') }}
+              onClick={() => { if (freeTextTitle.trim() && freeTextArtist.trim()) { setTipAmount(minTip); setStep('confirm') } }}
               className="btn-primary"
               style={{ width: '100%', marginBottom: '12px' }}
               disabled={!freeTextTitle.trim() || !freeTextArtist.trim()}
             >
               Use this song →
             </button>
-            <button
-              onClick={() => setFreeTextMode(false)}
-              style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: 0, textDecoration: 'underline' }}
-            >
+            <button onClick={() => setFreeTextMode(false)} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: 0, textDecoration: 'underline' }}>
               Back to search
             </button>
           </>
@@ -578,75 +596,126 @@ export default function RequesterPage() {
       <div style={{ marginBottom: '24px' }}>
         <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <HollerLogo variant="wordmark" size={36} />
-          <button
-            onClick={clearContact}
-            style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline', padding: 0 }}
-          >
-            Not {contact.value.split('@')[0]}?
+          <button onClick={clearContact} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline', padding: 0 }}>
+            Not {contact.value.includes('@') ? contact.value.split('@')[0] : contact.value.slice(-4)}?
           </button>
         </div>
         <h2 style={{ fontSize: '22px', marginBottom: '4px' }}>{band.name}</h2>
-        {session.venue_name && (
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{session.venue_name}</p>
-        )}
+        {session.venue_name && <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{session.venue_name}</p>}
       </div>
 
-      <button
-        className="btn-primary"
-        style={{ width: '100%', marginBottom: '32px', fontSize: '18px', padding: '14px' }}
-        onClick={() => setStep('search')}
-      >
+      <button className="btn-primary" style={{ width: '100%', marginBottom: '32px', fontSize: '18px', padding: '14px' }} onClick={() => setStep('search')}>
         Request a song →
       </button>
 
-      {queue.length > 0 ? (
-        <div>
-          <p className="label" style={{ marginBottom: '14px' }}>In the queue</p>
+      {/* ACCEPTED — up next */}
+      {acceptedQueue.length > 0 && (
+        <div style={{ marginBottom: '28px' }}>
+          <p className="label-accent" style={{ marginBottom: '12px' }}>Up next</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {queue.map(req => (
-              <div key={req.id} className="card" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <p style={{ fontSize: '14px', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {req.title}
-                  </p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{req.artist}</p>
-                </div>
-                <div style={{ marginLeft: '12px', textAlign: 'right', flexShrink: 0 }}>
-                  {req.tip_total > 0 && (
-                    <>
-                      <p style={{ fontSize: '16px', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", lineHeight: 1 }}>
-                        ${(req.tip_total / 100).toFixed(0)}
-                      </p>
-                      <p style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>
-                        {req.tip_count} {req.tip_count === 1 ? 'tip' : 'tips'}
-                      </p>
-                    </>
-                  )}
-                  <span style={{
-                    display: 'inline-block',
-                    marginTop: '4px',
-                    fontSize: '9px',
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    color: req.status === 'accepted' ? 'var(--success)' : 'var(--text-muted)',
-                    border: `1px solid ${req.status === 'accepted' ? 'var(--success)' : 'var(--border)'}`,
-                    padding: '2px 6px',
-                  }}>
-                    {req.status === 'accepted' ? 'Up next' : 'Pending'}
-                  </span>
-                </div>
-              </div>
+            {acceptedQueue.map(req => (
+              <RequestRow key={req.id} req={req} onBoost={() => handleBoost(req) } showBoost />
             ))}
           </div>
         </div>
-      ) : (
-        <div className="card" style={{ padding: '36px 24px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8' }}>
-            No requests yet — be the first.
-          </p>
+      )}
+
+      {/* PENDING */}
+      {pendingQueue.length > 0 && (
+        <div style={{ marginBottom: '28px' }}>
+          <p className="label" style={{ marginBottom: '12px' }}>In the queue</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {pendingQueue.map(req => (
+              <RequestRow key={req.id} req={req} onBoost={() => handleBoost(req)} showBoost />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {acceptedQueue.length === 0 && pendingQueue.length === 0 && (
+        <div className="card" style={{ padding: '36px 24px', textAlign: 'center', marginBottom: '28px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8' }}>No requests yet — be the first.</p>
+        </div>
+      )}
+
+      {/* PLAYED */}
+      {playedQueue.length > 0 && (
+        <div>
+          <p className="label" style={{ marginBottom: '12px' }}>Played tonight</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {playedQueue.map(req => (
+              <RequestRow key={req.id} req={req} showBoost={false} />
+            ))}
+          </div>
         </div>
       )}
 
     </main>
+  )
+}
+
+// ── Request Row ───────────────────────────────────────────────
+function RequestRow({ req, onBoost, showBoost }: { req: QueueRequest; onBoost?: () => void; showBoost: boolean }) {
+  return (
+    <div className="card" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', opacity: req.status === 'played' ? 0.55 : 1 }}>
+      <div style={{ minWidth: 0, flex: 1, display: 'flex', gap: '10px', alignItems: 'center' }}>
+        {req.spotify_album_art_url && (
+          <img src={req.spotify_album_art_url} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover', flexShrink: 0 }} />
+        )}
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: '14px', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.title}</p>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.artist}</p>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        {req.tip_total > 0 && (
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontSize: '15px', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", lineHeight: 1 }}>
+              ${(req.tip_total / 100).toFixed(0)}
+            </p>
+            <p style={{ fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>
+              {req.tip_count} {req.tip_count === 1 ? 'tip' : 'tips'}
+            </p>
+          </div>
+        )}
+        {showBoost && onBoost && (
+          <button
+            onClick={onBoost}
+            style={{
+              background: 'var(--accent-pale)',
+              border: '1px solid var(--accent-dim)',
+              color: 'var(--accent)',
+              fontFamily: "'Teko', sans-serif",
+              fontSize: '15px',
+              fontWeight: 500,
+              padding: '6px 10px',
+              cursor: 'pointer',
+              letterSpacing: '0.04em',
+              transition: 'background 0.1s',
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-dim)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent-pale)')}
+          >
+            + Boost
+          </button>
+        )}
+        {req.status === 'played' && (
+          <span style={{ fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Played</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Contact footer ────────────────────────────────────────────
+function ContactFooter({ contact, onClear }: { contact: string; onClear: () => void }) {
+  return (
+    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '20px', textAlign: 'center', lineHeight: '1.7' }}>
+      Receipt to {contact} ·{' '}
+      <button onClick={onClear} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', padding: 0, textDecoration: 'underline' }}>
+        Not you?
+      </button>
+    </p>
   )
 }

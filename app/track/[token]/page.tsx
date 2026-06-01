@@ -5,12 +5,11 @@ import { supabase } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
 import HollerLogo from '@/components/HollerLogo'
 
-type TipWithRequest = {
+type TipData = {
   id: string
   amount_cents: number
   status: 'held' | 'captured' | 'refunded'
   created_at: string
-  tracking_token: string
   request: {
     id: string
     title: string
@@ -19,9 +18,11 @@ type TipWithRequest = {
     reject_reason: string | null
     played_at: string | null
     session: {
+      id: string
       venue_name: string | null
       band: {
         name: string
+        slug: string
       }
     }
   }
@@ -29,15 +30,15 @@ type TipWithRequest = {
 
 const REJECT_LABELS: Record<string, string> = {
   dont_know: "They don't know this one",
-  not_tonight: "Not on the setlist tonight",
-  already_played: "Already played earlier",
+  not_tonight: 'Not on the setlist tonight',
+  already_played: 'Already played earlier',
 }
 
 export default function TrackingPage() {
   const params = useParams()
   const token = params.token as string
 
-  const [tip, setTip] = useState<TipWithRequest | null>(null)
+  const [tip, setTip] = useState<TipData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -45,12 +46,12 @@ export default function TrackingPage() {
       const { data } = await supabase
         .from('tips')
         .select(`
-          id, amount_cents, status, created_at, tracking_token,
+          id, amount_cents, status, created_at,
           request:requests(
             id, title, artist, status, reject_reason, played_at,
             session:sessions(
-              venue_name,
-              band:bands(name)
+              id, venue_name,
+              band:bands(name, slug)
             )
           )
         `)
@@ -63,32 +64,17 @@ export default function TrackingPage() {
     load()
   }, [token])
 
-  // Real-time updates
   useEffect(() => {
     if (!tip) return
     const channel = supabase
       .channel(`tip-${tip.id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'requests',
-        filter: `id=eq.${tip.request.id}`,
-      }, (payload) => {
-        setTip(prev => prev ? {
-          ...prev,
-          request: { ...prev.request, ...payload.new as any }
-        } : prev)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'requests', filter: `id=eq.${tip.request.id}` }, (payload) => {
+        setTip(prev => prev ? { ...prev, request: { ...prev.request, ...payload.new as any } } : prev)
       })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'tips',
-        filter: `id=eq.${tip.id}`,
-      }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tips', filter: `id=eq.${tip.id}` }, (payload) => {
         setTip(prev => prev ? { ...prev, ...payload.new as any } : prev)
       })
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [tip])
 
@@ -112,9 +98,11 @@ export default function TrackingPage() {
   }
 
   const { request } = tip
+  const session = request.session as any
+  const bandName = session?.band?.name ?? 'the band'
+  const bandSlug = session?.band?.slug ?? ''
+  const venue = session?.venue_name
   const amount = `$${(tip.amount_cents / 100).toFixed(0)}`
-  const bandName = (request.session as any)?.band?.name ?? 'the band'
-  const venue = (request.session as any)?.venue_name
 
   const statusConfig = {
     pending: {
@@ -124,10 +112,10 @@ export default function TrackingPage() {
       message: `Your request is in the queue. ${bandName} will see it shortly.`,
     },
     accepted: {
-      label: 'Coming up',
+      label: 'Coming up ✦',
       color: 'var(--success)',
       borderColor: 'var(--success)',
-      message: `${bandName} has accepted your request — it's coming up soon.`,
+      message: `${bandName} accepted your request — it's coming up soon.`,
     },
     played: {
       label: 'Played ✓',
@@ -150,30 +138,29 @@ export default function TrackingPage() {
   return (
     <main style={{ minHeight: '100vh', padding: '40px 20px', maxWidth: '420px', margin: '0 auto' }}>
 
-      <div style={{ marginBottom: '32px' }}>
+      {/* Nav */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
         <HollerLogo variant="wordmark" size={32} />
+        {bandSlug && (
+          <a
+            href={`/${bandSlug}`}
+            style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none' }}
+          >
+            ← Back to queue
+          </a>
+        )}
       </div>
 
       <div className="card-ornate">
         <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
         <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
 
-        {/* Status badge */}
         <div style={{ marginBottom: '20px' }}>
-          <span style={{
-            fontSize: '10px',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            color: config.color,
-            border: `1px solid ${config.borderColor}`,
-            padding: '4px 10px',
-            display: 'inline-block',
-          }}>
+          <span style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: config.color, border: `1px solid ${config.borderColor}`, padding: '4px 10px', display: 'inline-block' }}>
             {config.label}
           </span>
         </div>
 
-        {/* Song */}
         <h2 style={{ fontSize: '26px', marginBottom: '4px' }}>{request.title}</h2>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>{request.artist}</p>
 
@@ -181,7 +168,6 @@ export default function TrackingPage() {
           <span style={{ color: 'var(--star)' }}>✦</span>
         </div>
 
-        {/* Details */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
             <span style={{ color: 'var(--text-muted)' }}>Tip</span>
@@ -207,10 +193,19 @@ export default function TrackingPage() {
           )}
         </div>
 
-        {/* Status message */}
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.8', padding: '14px', background: 'var(--bg-raised)', border: '1px solid var(--border)' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.8', padding: '14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', marginBottom: '20px' }}>
           {config.message}
         </p>
+
+        {bandSlug && (
+          <a
+            href={`/${bandSlug}`}
+            className="btn-primary"
+            style={{ display: 'block', textAlign: 'center', textDecoration: 'none', marginBottom: '10px' }}
+          >
+            Request another song →
+          </a>
+        )}
       </div>
 
     </main>

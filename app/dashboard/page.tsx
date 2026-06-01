@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import HollerLogo from '@/components/HollerLogo'
 
-type Band = { id: string; name: string; slug: string }
+type Band = { id: string; name: string; slug: string; min_tip_cents: number }
 type Session = { id: string; venue_name: string | null; started_at: string; status: string }
 
 export default function DashboardPage() {
@@ -22,7 +22,7 @@ export default function DashboardPage() {
 
       const { data: bandData } = await supabase
         .from('bands')
-        .select('id, name, slug')
+        .select('id, name, slug, min_tip_cents')
         .eq('user_id', user.id)
         .single()
 
@@ -45,25 +45,14 @@ export default function DashboardPage() {
   async function handleStartSession() {
     if (!band) return
     setStarting(true)
-
-    const venueName = window.prompt("Where are you playing tonight? (optional — press OK to skip)")
-
+    const venueName = window.prompt('Where are you playing tonight? (optional — press OK to skip)')
     const { data, error } = await supabase
       .from('sessions')
-      .insert({
-        band_id: band.id,
-        venue_name: venueName?.trim() || null,
-        status: 'active',
-      })
+      .insert({ band_id: band.id, venue_name: venueName?.trim() || null, status: 'active' })
       .select('id')
       .single()
 
-    if (error || !data) {
-      alert('Something went wrong starting the session. Try again.')
-      setStarting(false)
-      return
-    }
-
+    if (error || !data) { alert('Something went wrong starting the session. Try again.'); setStarting(false); return }
     router.push(`/session/${data.id}`)
   }
 
@@ -87,14 +76,18 @@ export default function DashboardPage() {
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <HollerLogo variant="wordmark" size={48} />
-        <button onClick={handleSignOut} className="btn-ghost">Sign out</button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <a href="/settings" style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none', border: '1px solid var(--border-warm)', padding: '8px 14px' }}>
+            Settings
+          </a>
+          <button onClick={handleSignOut} className="btn-ghost">Sign out</button>
+        </div>
       </div>
 
       <div className="star-divider" style={{ marginBottom: '40px' }}>
         <span style={{ color: 'var(--star)', fontSize: '10px' }}>✦ ✦ ✦</span>
       </div>
 
-      {/* Band card */}
       <div style={{ marginBottom: '36px' }}>
         <p className="label" style={{ marginBottom: '14px' }}>Your outfit</p>
         {band ? (
@@ -105,12 +98,12 @@ export default function DashboardPage() {
               <div>
                 <h2 style={{ fontSize: '26px', marginBottom: '6px' }}>{band.name}</h2>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  holler.live/<span style={{ color: 'var(--accent)' }}>{band.slug}</span>
+                  Min tip: <span style={{ color: 'var(--accent)' }}>${band.min_tip_cents / 100}</span>
+                  &nbsp;·&nbsp;
+                  <a href="/settings" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>change</a>
                 </p>
               </div>
-              <span className="label-accent" style={{ fontSize: '9px', border: '1px solid var(--accent-dim)', padding: '4px 8px' }}>
-                ✦ Ready
-              </span>
+              <span className="label-accent" style={{ fontSize: '9px', border: '1px solid var(--accent-dim)', padding: '4px 8px' }}>✦ Ready</span>
             </div>
             <div className="star-divider" style={{ marginBottom: '20px' }}>
               <span style={{ color: 'var(--border-bright)', fontSize: '8px' }}>✦</span>
@@ -120,22 +113,13 @@ export default function DashboardPage() {
                 <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px' }}>
                   You have an active session in progress.
                 </p>
-                <button
-                  className="btn-primary"
-                  style={{ width: '100%' }}
-                  onClick={() => router.push(`/session/${activeSession.id}`)}
-                >
+                <button className="btn-primary" style={{ width: '100%' }} onClick={() => router.push(`/session/${activeSession.id}`)}>
                   Back to live queue →
                 </button>
               </div>
             ) : (
-              <button
-                className="btn-primary"
-                style={{ width: '100%', opacity: starting ? 0.6 : 1 }}
-                onClick={handleStartSession}
-                disabled={starting}
-              >
-                {starting ? 'Starting...' : 'Start tonight\'s session →'}
+              <button className="btn-primary" style={{ width: '100%', opacity: starting ? 0.6 : 1 }} onClick={handleStartSession} disabled={starting}>
+                {starting ? 'Starting...' : "Start tonight's session →"}
               </button>
             )}
           </div>
@@ -153,23 +137,18 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Past sessions */}
       <div>
         <p className="label" style={{ marginBottom: '14px' }}>Past sessions</p>
         {sessions.filter(s => s.status !== 'active').length === 0 ? (
           <div className="card" style={{ padding: '40px 28px', textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.08em' }}>
-              No sessions on the books yet.
-            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.08em' }}>No sessions on the books yet.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {sessions.filter(s => s.status !== 'active').map(session => (
               <div key={session.id} className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ fontSize: '13px', marginBottom: '2px' }}>
-                    {session.venue_name ?? 'No venue set'}
-                  </p>
+                  <p style={{ fontSize: '13px', marginBottom: '2px' }}>{session.venue_name ?? 'No venue set'}</p>
                   <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                     {new Date(session.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
