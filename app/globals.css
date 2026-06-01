@@ -207,3 +207,38 @@ h1, h2, h3 {
 }
 .input:focus        { border-color: var(--accent); }
 .input::placeholder { color: var(--text-dim); }
+
+/* ── Google Places Autocomplete dropdown ── */
+.pac-container {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-warm) !important;
+  border-top: none !important;
+  box-shadow: none !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  margin-top: -1px;
+}
+.pac-item {
+  background: var(--bg-card) !important;
+  border-top: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 13px !important;
+  padding: 10px 14px !important;
+  cursor: pointer !important;
+}
+.pac-item:hover,
+.pac-item-selected {
+  background: var(--bg-raised) !important;
+}
+.pac-item-query {
+  color: var(--text) !important;
+  font-size: 13px !important;
+}
+.pac-matched {
+  color: var(--accent) !important;
+  font-weight: 500 !important;
+}
+.pac-icon,
+.pac-logo::after {
+  display: none !important;
+}
