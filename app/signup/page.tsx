@@ -1,13 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 import HollerLogo from '@/components/HollerLogo'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
+  const [checking, setChecking] = useState(true)
+  const router = useRouter()
+
+  // If already logged in, go straight to dashboard
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) router.replace('/dashboard')
+      else setChecking(false)
+    })
+  }, [router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -20,6 +31,14 @@ export default function SignupPage() {
     else setSubmitted(true)
   }
 
+  if (checking) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p className="label">Loading...</p>
+      </main>
+    )
+  }
+
   if (submitted) {
     return (
       <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
@@ -27,16 +46,16 @@ export default function SignupPage() {
           <div className="card-ornate" style={{ padding: '40px 32px' }}>
             <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
             <span className="side-ornament side-ornament-right">✦ ✦ ✦</span>
-            <p className="label-accent" style={{ marginBottom: '20px' }}>Ride's on its way</p>
-            <h2 style={{ fontSize: '32px', marginBottom: '16px', fontStyle: 'italic' }}>
-              Check your inbox
-            </h2>
-            <div className="star-divider" style={{ justifyContent: 'center', marginBottom: '20px' }}>
+            <p className="label-accent" style={{ marginBottom: '20px' }}>Link on its way</p>
+            <h2 style={{ fontSize: '30px', marginBottom: '12px' }}>Check your inbox</h2>
+            <div className="star-divider" style={{ marginBottom: '20px' }}>
               <span style={{ color: 'var(--star)' }}>✦</span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.9' }}>
-              Sent a link to <span style={{ color: 'var(--text)' }}>{email}</span>.<br />
-              Click it to get your band on the boards.
+              Sent a magic link to{' '}
+              <span style={{ color: 'var(--text)' }}>{email}</span>.
+              <br />
+              Click it to sign in.
             </p>
           </div>
         </div>
@@ -46,15 +65,13 @@ export default function SignupPage() {
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
+      <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center' }}>
 
-        <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'center' }}>
-          <HollerLogo variant="full" size={420} />
+        <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
+          <HollerLogo variant="full" size={320} />
         </div>
 
-        <p className="label" style={{ marginBottom: '32px' }}>
-          Live song requests
-        </p>
+        <p className="label" style={{ marginBottom: '40px' }}>Live Song Requests</p>
 
         <div className="card-ornate" style={{ textAlign: 'left' }}>
           <span className="side-ornament side-ornament-left">✦ ✦ ✦</span>
@@ -72,7 +89,11 @@ export default function SignupPage() {
                 onChange={e => setEmail(e.target.value)}
                 required
                 placeholder="your@band.com"
+                autoFocus
               />
+              <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: '1.7' }}>
+                New or returning — we'll send you a sign-in link either way.
+              </p>
             </div>
 
             {error && (
@@ -85,9 +106,9 @@ export default function SignupPage() {
           </form>
         </div>
 
-        <p style={{ marginTop: '24px', color: 'var(--text-dim)', fontSize: '11px', letterSpacing: '0.06em' }}>
-          Already have an account?{' '}
-          <a href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sign in →</a>
+        <p style={{ marginTop: '20px', color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7' }}>
+          Looking to request a song?{' '}
+          <span style={{ color: 'var(--text-dim)' }}>Scan the QR code at the venue.</span>
         </p>
 
       </div>
