@@ -75,14 +75,9 @@ function MarqueeHeader({ bandName, venueName, startedAt, contactDisplay, onClear
       <div className="marquee-panel">
         {/* Line 1: band name (first half) */}
         <div className="marquee-track">
-          <MarqueeText text={line1} fontSize={line2 ? 34 : 40} color="#1a1008" />
+          <MarqueeText text={nameLine} fontSize={40} color="#1a1008" />
         </div>
         {/* Line 2: band name (second half) or venue */}
-        {line2 ? (
-          <div className="marquee-track">
-            <MarqueeText text={line2} fontSize={34} color="#1a1008" />
-          </div>
-        ) : null}
         {/* Line 3: venue */}
         {venueName && (
           <div className="marquee-track" style={{ minHeight: '38px' }}>
