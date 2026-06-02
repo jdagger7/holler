@@ -15,13 +15,117 @@ const F = "'Arvo', serif"
 
 type Band = { id: string; name: string; slug: string; min_tip_cents: number; stripe_account_id: string | null; venmo_handle: string | null }
 type Session = { id: string; venue_name: string | null; status: string; started_at: string }
-type QueueRequest = {
-  id: string; title: string; artist: string
-  spotify_album_art_url: string | null
-  status: string; tip_total: number; tip_count: number
-}
+type QueueRequest = { id: string; title: string; artist: string; spotify_album_art_url: string | null; status: string; tip_total: number; tip_count: number }
 type SpotifyTrack = { id: string; title: string; artist: string; album: string; album_art: string | null }
 type Step = 'queue' | 'search' | 'confirm' | 'payment' | 'boost' | 'submitted'
+
+// Hand-placed marquee letter renderer
+// Each character gets a tiny random rotation + spacing nudge, seeded by position
+function MarqueeText({ text, fontSize, color }: { text: string; fontSize: number; color: string }) {
+  // Deterministic "random" values based on char index so they don't shift on re-render
+  const chars = text.split('')
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '0' }}>
+      {chars.map((ch, i) => {
+        // Pseudo-random but deterministic per position
+        const seed = (i * 7 + ch.charCodeAt(0)) % 100
+        const rot = ((seed % 7) - 3) * 0.6  // -1.8 to +1.8 degrees
+        const nudgeX = ((seed * 3) % 5) - 2  // -2 to +2px
+        const nudgeY = ((seed * 5) % 4) - 1.5 // -1.5 to +1.5px
+        const extraSpace = ((seed * 2) % 4)    // 0-3px extra letter spacing
+        return (
+          <span
+            key={i}
+            className="marquee-letter"
+            style={{
+              fontSize: `${fontSize}px`,
+              color,
+              transform: `rotate(${rot}deg) translate(${nudgeX}px, ${nudgeY}px)`,
+              marginRight: ch === ' ' ? `${fontSize * 0.3}px` : `${extraSpace}px`,
+              display: 'inline-block',
+            }}
+          >
+            {ch === ' ' ? '\u00A0' : ch}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function MarqueeHeader({ bandName, venueName, startedAt, contactDisplay, onClear }: {
+  bandName: string; venueName: string | null; startedAt: string
+  contactDisplay: string; onClear: () => void
+}) {
+  const date = new Date(startedAt)
+  const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
+  const bulbCount = 26
+
+  // Split band name into up to 2 lines for the marquee
+  const words = bandName.toUpperCase().split(' ')
+  let line1 = '', line2 = ''
+  if (words.length <= 2) {
+    line1 = bandName.toUpperCase()
+  } else {
+    const mid = Math.ceil(words.length / 2)
+    line1 = words.slice(0, mid).join(' ')
+    line2 = words.slice(mid).join(' ')
+  }
+
+  return (
+    <div className="marquee-wrap">
+      {/* Top bulb row */}
+      <div className="marquee-bulbs">
+        {Array.from({ length: bulbCount }).map((_, i) => (
+          <div key={i} className={`marquee-bulb${i % 4 === 2 ? ' dim' : ''}`} />
+        ))}
+      </div>
+
+      {/* Sign panel with track lines */}
+      <div className="marquee-panel">
+        {/* Line 1: band name (first half) */}
+        <div className="marquee-track">
+          <MarqueeText text={line1} fontSize={line2 ? 34 : 40} color="#1a1008" />
+        </div>
+        {/* Line 2: band name (second half) or venue */}
+        {line2 ? (
+          <div className="marquee-track">
+            <MarqueeText text={line2} fontSize={34} color="#1a1008" />
+          </div>
+        ) : null}
+        {/* Line 3: venue */}
+        {venueName && (
+          <div className="marquee-track" style={{ minHeight: '38px' }}>
+            <MarqueeText text={venueName.toUpperCase()} fontSize={20} color="#3a2808" />
+          </div>
+        )}
+        {/* Line 4: date */}
+        <div className="marquee-track" style={{ minHeight: '34px', borderTop: '2px solid #c8b888' }}>
+          <MarqueeText text={dateStr} fontSize={18} color="#5a3e18" />
+        </div>
+      </div>
+
+      {/* Bottom bulb row */}
+      <div className="marquee-bulbs-bottom">
+        {Array.from({ length: bulbCount }).map((_, i) => (
+          <div key={i} className={`marquee-bulb${i % 4 === 0 ? ' dim' : ''}`} />
+        ))}
+      </div>
+
+      {/* Info strip below marquee */}
+      <div className="marquee-info">
+        <div style={{ width: '60px' }} />
+        <div />
+        <button
+          onClick={onClear}
+          style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontFamily: F, fontSize: '11px', padding: '2px 0' }}
+        >
+          Not {contactDisplay}?
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function RequesterPage() {
   const params = useParams()
@@ -210,7 +314,6 @@ export default function RequesterPage() {
     setCustomAmount(''); setSubmitError(''); setClientSecret(null); setPendingRequestId(null)
   }
 
-  // Contact display helper
   const contactDisplay = contact
     ? contact.type === 'email'
       ? contact.value.split('@')[0]
@@ -247,7 +350,7 @@ export default function RequesterPage() {
     theme: 'night' as const,
     variables: {
       colorBackground: '#1e1508', colorText: '#f5eed8', colorPrimary: '#e09030',
-      colorDanger: '#c04040', fontFamily: 'Rokkitt, serif',
+      colorDanger: '#c04040', fontFamily: 'Arvo, serif',
       borderRadius: '0px', colorInputBackground: '#120d04', colorInputBorder: '#6b4e20',
     },
   }
@@ -258,11 +361,13 @@ export default function RequesterPage() {
       <main style={{ minHeight: '100vh' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button onClick={handlePaymentAbandoned} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: F, fontSize: '14px', padding: 0 }}>← Back</button>
-          <p style={{ fontFamily: F, color: 'var(--text-muted)', fontSize: '14px' }}>${tipAmount !== null ? tipAmount : (parseFloat(customAmount) || 0)} tip</p>
+          <p style={{ fontFamily: F, color: 'var(--text-muted)', fontSize: '14px' }}>
+            ${tipAmount !== null ? tipAmount : (parseFloat(customAmount) || 0)} tip
+          </p>
         </div>
         <div style={{ padding: '24px 20px' }}>
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
-            <PaymentForm onSuccess={handlePaymentSuccess} onError={setSubmitError} amount={tipAmount === null ? Math.round(parseFloat(customAmount)*100) : tipAmount*100} />
+            <PaymentForm onSuccess={handlePaymentSuccess} onError={setSubmitError} amount={tipAmount !== null ? tipAmount * 100 : Math.round(parseFloat(customAmount) * 100)} />
           </Elements>
           {submitError && <p style={{ color: 'var(--danger)', fontFamily: F, fontSize: '14px', marginTop: '12px' }}>{submitError}</p>}
           <p style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px', textAlign: 'center', lineHeight: '1.6' }}>
@@ -344,8 +449,7 @@ export default function RequesterPage() {
             ← Back
           </button>
           {!freeTextMode ? (
-            <input ref={searchInputRef} type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search for a song..."
+            <input ref={searchInputRef} type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search for a song..."
               style={{ width: '100%', background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontFamily: F, fontSize: '22px', padding: '4px 0' }} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -366,7 +470,7 @@ export default function RequesterPage() {
                   style={{ width: '100%', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', padding: '13px 20px', display: 'flex', gap: '14px', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}>
                   {track.album_art && <img src={track.album_art} alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }} />}
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontFamily: F, fontSize: '16px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{track.title}</p>
+                    <p style={{ fontFamily: F, fontSize: '16px', fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{track.title}</p>
                     <p style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist}</p>
                   </div>
                 </button>
@@ -399,46 +503,25 @@ export default function RequesterPage() {
         <TipModal bandId={band.id} bandName={band.name} venmoHandle={band.venmo_handle} minTip={minTip} onClose={() => setShowTipModal(false)} />
       )}
 
-      {/* Theater marquee header */}
-      <div className="marquee-wrap">
-        {/* Top bulb row */}
-        <div className="marquee-bulbs">
-          {Array.from({length: 24}).map((_, i) => (
-            <div key={i} className={`marquee-bulb${i % 3 === 1 ? ' dim' : ''}`} />
-          ))}
-        </div>
-        {/* Sign panel */}
-        <div className="marquee-panel">
-          <div className="marquee-name">{band.name}</div>
-          {session.venue_name && (
-            <div className="marquee-venue">{session.venue_name}</div>
-          )}
-        </div>
-        {/* Bottom bulb row */}
-        <div className="marquee-bulbs-bottom">
-          {Array.from({length: 24}).map((_, i) => (
-            <div key={i} className={`marquee-bulb${i % 3 === 2 ? ' dim' : ''}`} />
-          ))}
-        </div>
-        {/* Not you — bottom right of marquee */}
-        <div style={{ position: 'absolute', bottom: '10px', right: '16px' }}>
-          <button onClick={clearContact} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontFamily: "'Arvo', serif", fontSize: '11px', padding: 0 }}>
-            Not {contactDisplay}?
-          </button>
-        </div>
-      </div>
+      <MarqueeHeader
+        bandName={band.name}
+        venueName={session.venue_name}
+        startedAt={session.started_at}
+        contactDisplay={contactDisplay}
+        onClear={clearContact}
+      />
 
       {/* CTAs */}
       <div style={{ padding: '12px 16px', display: 'flex', gap: '10px', background: 'var(--bg)', borderBottom: '1px solid var(--border-warm)' }}>
         <button className="btn-primary" style={{ flex: 1, fontSize: '20px', padding: '13px' }} onClick={() => setStep('search')}>
           Request a song
         </button>
-        <button className="btn-ghost" style={{ padding: '13px 24px', width: 'auto' }} onClick={() => setShowTipModal(true)}>
+        <button className="btn-ghost" style={{ padding: '13px 28px', width: 'auto' }} onClick={() => setShowTipModal(true)}>
           Tip
         </button>
       </div>
 
-      {/* Up next — most prominent */}
+      {/* Up next */}
       {accepted.length > 0 && (
         <div>
           <div className="section-header-accent">
@@ -466,7 +549,7 @@ export default function RequesterPage() {
         </div>
       )}
 
-      {/* Played — visually separated, pushed down, dimmed */}
+      {/* Played */}
       {played.length > 0 && (
         <div style={{ marginTop: 'auto' }}>
           <div className="section-header-played">
@@ -480,15 +563,9 @@ export default function RequesterPage() {
   )
 }
 
-// ── Queue row — three visual variants ──────────────────
-function QueueRow({ req, onBoost, variant }: {
-  req: QueueRequest
-  onBoost?: () => void
-  variant: 'upnext' | 'pending' | 'played'
-}) {
+function QueueRow({ req, onBoost, variant }: { req: QueueRequest; onBoost?: () => void; variant: 'upnext' | 'pending' | 'played' }) {
   const isUpNext = variant === 'upnext'
   const isPlayed = variant === 'played'
-
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '12px',
@@ -499,22 +576,19 @@ function QueueRow({ req, onBoost, variant }: {
       borderLeft: isUpNext ? '5px solid var(--accent)' : '5px solid transparent',
     }}>
       {req.spotify_album_art_url
-        ? <img src={req.spotify_album_art_url} alt="" style={{ width: isUpNext ? '48px' : '40px', height: isUpNext ? '48px' : '40px', objectFit: 'cover', flexShrink: 0 }} />
-        : <div style={{ width: isUpNext ? '48px' : '40px', height: isUpNext ? '48px' : '40px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border-warm)' }} />
+        ? <img src={req.spotify_album_art_url} alt="" style={{ width: isUpNext ? '52px' : '42px', height: isUpNext ? '52px' : '42px', objectFit: 'cover', flexShrink: 0 }} />
+        : <div style={{ width: isUpNext ? '52px' : '42px', height: isUpNext ? '52px' : '42px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border-warm)' }} />
       }
       <div style={{ minWidth: 0, flex: 1 }}>
-        <p style={{ fontFamily: "'Arvo', serif", fontSize: isUpNext ? '17px' : '15px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px', color: 'var(--text)' }}>{req.title}</p>
+        <p style={{ fontFamily: "'Arvo', serif", fontSize: isUpNext ? '17px' : '15px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px', color: 'var(--text)' }}>{req.title}</p>
         <p style={{ fontFamily: "'Arvo', serif", fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.artist}</p>
       </div>
-      {/* Tip + boost grouped together on right */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         {req.tip_total > 0 && (
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ fontFamily: "'Teko', sans-serif", fontSize: isUpNext ? '22px' : '18px', color: 'var(--accent)', lineHeight: 1 }}>${(req.tip_total / 100).toFixed(0)}</p>
-          </div>
+          <p style={{ fontFamily: "'Teko', sans-serif", fontSize: isUpNext ? '24px' : '19px', color: 'var(--accent)', lineHeight: 1 }}>${(req.tip_total / 100).toFixed(0)}</p>
         )}
         {onBoost && !isPlayed && (
-          <button onClick={onBoost} style={{ background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", fontSize: '15px', padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <button onClick={onBoost} style={{ background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", fontSize: '15px', padding: '6px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             + Boost
           </button>
         )}
@@ -529,7 +603,7 @@ function SongCard({ title, artist, albumArt, tipTotal }: { title: string; artist
       {albumArt ? <img src={albumArt} alt="" style={{ width: '60px', height: '60px', objectFit: 'cover', flexShrink: 0 }} />
         : <div style={{ width: '60px', height: '60px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border-warm)' }} />}
       <div style={{ minWidth: 0 }}>
-        <p style={{ fontFamily: "'Arvo', serif", fontSize: '18px', fontWeight: 600, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</p>
+        <p style={{ fontFamily: "'Arvo', serif", fontSize: '18px', fontWeight: 700, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</p>
         <p style={{ fontFamily: "'Arvo', serif", fontSize: '14px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</p>
         {tipTotal && tipTotal > 0 && <p style={{ fontFamily: "'Arvo', serif", fontSize: '13px', color: 'var(--accent)', marginTop: '4px' }}>${(tipTotal / 100).toFixed(0)} already tipped</p>}
       </div>
@@ -552,7 +626,7 @@ function TipPicker({ amounts, tipAmount, setTipAmount, customAmount, setCustomAm
           </button>
         ))}
         <button onClick={() => { setTipAmount(null); setCustomAmount('') }}
-          style={{ background: tipAmount === null ? 'var(--accent)' : 'var(--bg-card)', border: `1px solid ${tipAmount === null ? 'var(--accent)' : 'var(--border-warm)'}`, color: tipAmount === null ? '#120d04' : 'var(--text-muted)', fontFamily: "'Arvo', serif", fontSize: '12px', letterSpacing: '0.08em', padding: '14px 4px', cursor: 'pointer', textTransform: 'uppercase', fontWeight: 600 }}>
+          style={{ background: tipAmount === null ? 'var(--accent)' : 'var(--bg-card)', border: `1px solid ${tipAmount === null ? 'var(--accent)' : 'var(--border-warm)'}`, color: tipAmount === null ? '#120d04' : 'var(--text-muted)', fontFamily: "'Arvo', serif", fontSize: '11px', letterSpacing: '0.08em', padding: '14px 4px', cursor: 'pointer', textTransform: 'uppercase', fontWeight: 700 }}>
           Other
         </button>
       </div>
@@ -573,7 +647,7 @@ function PageHeader({ onBack, title }: { onBack: () => void; title: string }) {
   return (
     <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', gap: '16px' }}>
       <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: "'Arvo', serif", fontSize: '14px', padding: 0, flexShrink: 0 }}>←</button>
-      <p style={{ fontFamily: "'Arvo', serif", fontSize: '17px', fontWeight: 600, color: 'var(--text)' }}>{title}</p>
+      <p style={{ fontFamily: "'Arvo', serif", fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>{title}</p>
     </div>
   )
 }
