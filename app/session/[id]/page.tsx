@@ -133,7 +133,7 @@ export default function SessionPage() {
     const totalTips = requests.reduce((s, r) => s + r.tip_total, 0)
 
     return (
-      <main style={{ minHeight: '100vh' }}>
+      <main style={{ minHeight: '100vh', maxWidth: '680px', margin: '0 auto' }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <NavWordmark size={30} />
           <a href="/dashboard" className="btn-ghost" style={{ textDecoration: 'none', fontSize: '11px', width: 'auto' }}>Dashboard</a>
@@ -193,7 +193,7 @@ export default function SessionPage() {
   const rejected = requests.filter(r => r.status === 'rejected')
 
   return (
-    <main style={{ minHeight: '100vh' }}>
+    <main style={{ minHeight: '100vh', maxWidth: '680px', margin: '0 auto' }}>
 
       {showEndModal && (
         <Modal title="End session" onClose={() => setShowEndModal(false)}>
@@ -358,7 +358,7 @@ function BandRow({ req, onAccept, onPlayed, onRejectStart, rejectingId, onReject
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
             {REJECT_REASONS.map(r => (
               <button key={r.value} onClick={() => onReject(r.value)}
-                style={{ background: 'var(--bg)', border: '1px solid var(--border-warm)', color: 'var(--text)', fontFamily: "'Rokkitt', serif", fontSize: '15px', padding: '12px 14px', textAlign: 'left', cursor: 'pointer', minHeight: '48px' }}>
+                style={{ background: 'var(--bg)', border: '1px solid var(--border-warm)', color: 'var(--text)', fontFamily: "'Arvo', serif", fontSize: '15px', padding: '12px 14px', textAlign: 'left', cursor: 'pointer', minHeight: '48px' }}>
                 {r.label}
               </button>
             ))}

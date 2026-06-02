@@ -7,9 +7,22 @@ const PLATFORM_FEE_PERCENT = 0.05
 
 export async function POST(request: NextRequest) {
   try {
-    const { request_id, amount_cents, band_id } = await request.json()
+    const {
+      band_id,
+      amount_cents,
+      // Song details — request created here so it only appears after payment intent is created
+      session_id,
+      title,
+      artist,
+      spotify_track_id,
+      spotify_album_art_url,
+      requester_email,
+      requester_phone,
+      // For boosts, pass existing request_id instead
+      existing_request_id,
+    } = await request.json()
 
-    if (!request_id || !amount_cents || !band_id) {
+    if (!band_id || !amount_cents || !session_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -23,20 +36,35 @@ export async function POST(request: NextRequest) {
     )
 
     const { data: band } = await supabase
-      .from('bands')
-      .select('stripe_account_id, name')
-      .eq('id', band_id)
-      .single()
+      .from('bands').select('stripe_account_id, name').eq('id', band_id).single()
 
     if (!band?.stripe_account_id) {
       return NextResponse.json({ error: 'Artist has not connected Stripe' }, { status: 400 })
     }
 
-    const { data: req } = await supabase
-      .from('requests')
-      .select('title, artist')
-      .eq('id', request_id)
-      .single()
+    // Create the request row now — but mark it as 'pending_payment'
+    // so it doesn't show in the public queue until payment is confirmed
+    let requestId = existing_request_id
+    if (!requestId) {
+      const { data: req, error: reqError } = await supabase
+        .from('requests')
+        .insert({
+          session_id,
+          title,
+          artist,
+          spotify_track_id: spotify_track_id ?? null,
+          spotify_album_art_url: spotify_album_art_url ?? null,
+          requester_email: requester_email ?? null,
+          requester_phone: requester_phone ?? null,
+          status: 'pending_payment', // hidden from queue until payment confirmed
+        })
+        .select('id').single()
+
+      if (reqError || !req) {
+        return NextResponse.json({ error: 'Failed to create request' }, { status: 500 })
+      }
+      requestId = req.id
+    }
 
     const platformFee = Math.round(amount_cents * PLATFORM_FEE_PERCENT)
 
@@ -44,24 +72,19 @@ export async function POST(request: NextRequest) {
       amount: amount_cents,
       currency: 'usd',
       capture_method: 'manual',
-      // Explicitly list only card — overrides dashboard defaults
       payment_method_types: ['card'],
       application_fee_amount: platformFee,
       transfer_data: { destination: band.stripe_account_id },
-      description: req
-        ? `Holler: "${req.title}" by ${req.artist} — ${band.name}`
-        : `Holler tip for ${band.name}`,
-      metadata: { request_id, band_id },
-    }, {
-      // Pass as platform on behalf of connected account
-      stripeAccount: undefined,
+      description: `Holler: "${title}" by ${artist} — ${band.name}`,
+      metadata: { request_id: requestId, band_id, session_id },
     })
 
-    console.log('PaymentIntent created:', paymentIntent.id, 'methods:', paymentIntent.payment_method_types)
+    console.log('PaymentIntent created:', paymentIntent.id, 'request:', requestId)
 
     return NextResponse.json({
       client_secret: paymentIntent.client_secret,
       payment_intent_id: paymentIntent.id,
+      request_id: requestId,
     })
   } catch (err: any) {
     console.error('Create PaymentIntent error:', err.message)
