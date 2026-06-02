@@ -245,3 +245,22 @@ h1, h2, h3 {
   display: block !important;
 }
 .pac-icon, .pac-logo::after { display: none !important; }
+
+/* ── Desktop flourishes ─────────────────────────────── */
+@media (min-width: 768px) {
+  body {
+    /* Subtle grid texture on desktop */
+    background-image:
+      linear-gradient(rgba(107, 78, 32, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(107, 78, 32, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Give the content a lifted look on desktop */
+  .page-container {
+    box-shadow:
+      0 0 0 1px rgba(107, 78, 32, 0.15),
+      0 4px 32px rgba(0, 0, 0, 0.4);
+    background: var(--bg-raised);
+  }
+}

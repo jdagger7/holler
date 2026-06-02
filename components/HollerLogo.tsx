@@ -42,8 +42,8 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
       <rect x="492" y="0"   width="28"  height="270" fill="#120d04"/>
 
       {/* Corner diamonds */}
-      <polygon points="14,4 24,14 14,24 4,14"   fill="#a07830"/>
-      <polygon points="506,4 516,14 506,24 496,14" fill="#a07830"/>
+      <polygon points="14,4 24,14 14,24 4,14"        fill="#a07830"/>
+      <polygon points="506,4 516,14 506,24 496,14"   fill="#a07830"/>
       <polygon points="14,246 24,256 14,266 4,256"   fill="#a07830"/>
       <polygon points="506,246 516,256 506,266 496,256" fill="#a07830"/>
 
@@ -82,23 +82,27 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
       {/* Inner border lines */}
       <rect x="0" y="0" width="520" height="270" fill="none" stroke="#6b4e20" strokeWidth="1.5"/>
       <rect x="28" y="28" width="464" height="214" fill="none" stroke="#3d2c10" strokeWidth="0.75"/>
-      <line x1="48" y1="65"  x2="472" y2="65"  stroke="#3d2c10" strokeWidth="0.5"/>
-      <line x1="48" y1="215" x2="472" y2="215" stroke="#3d2c10" strokeWidth="0.5"/>
 
-      {/* Side stars */}
-      <text x="60"  y="152" textAnchor="middle" fontFamily="serif" fontSize="18" fill="#6b4e20">✦</text>
-      <text x="460" y="152" textAnchor="middle" fontFamily="serif" fontSize="18" fill="#6b4e20">✦</text>
+      {/* Horizontal inner rules — above and below text area */}
+      <line x1="48" y1="60"  x2="472" y2="60"  stroke="#3d2c10" strokeWidth="0.75"/>
+      <line x1="48" y1="218" x2="472" y2="218" stroke="#3d2c10" strokeWidth="0.75"/>
 
-      {/* HOLLER text — SVG text, no foreignObject */}
+      {/* Side stars — positioned in the middle of the content area */}
+      <text x="44"  y="148" textAnchor="middle" fontFamily="serif" fontSize="16" fill="#6b4e20">✦</text>
+      <text x="476" y="148" textAnchor="middle" fontFamily="serif" fontSize="16" fill="#6b4e20">✦</text>
+
+      {/* HOLLER — centered vertically between the two rules (y=60 to y=218, midpoint=139) */}
+      {/* dominant-baseline="central" centers the text vertically on the y coordinate */}
       <text
         x="260"
-        y="200"
+        y="142"
         textAnchor="middle"
+        dominantBaseline="central"
         fontFamily="Teko, sans-serif"
         fontWeight="600"
-        fontSize="158"
+        fontSize="148"
         fill="#e09030"
-        letterSpacing="2"
+        letterSpacing="1"
       >
         HOLLER
       </text>
