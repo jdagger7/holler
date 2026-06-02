@@ -258,7 +258,7 @@ export default function RequesterPage() {
       <main style={{ minHeight: '100vh' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button onClick={handlePaymentAbandoned} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: F, fontSize: '14px', padding: 0 }}>← Back</button>
-          <p style={{ fontFamily: F, color: 'var(--text-muted)', fontSize: '14px' }}>${tipAmount ?? parseFloat(customAmount)||0} tip</p>
+          <p style={{ fontFamily: F, color: 'var(--text-muted)', fontSize: '14px' }}>${(tipAmount ?? parseFloat(customAmount) || 0)} tip</p>
         </div>
         <div style={{ padding: '24px 20px' }}>
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
