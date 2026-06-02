@@ -103,9 +103,7 @@ export default function RequesterPage() {
   }, [session, fetchQueue])
 
   useEffect(() => {
-    if (step === 'search' && searchInputRef.current) {
-      setTimeout(() => searchInputRef.current?.focus(), 100)
-    }
+    if (step === 'search') setTimeout(() => searchInputRef.current?.focus(), 100)
   }, [step])
 
   useEffect(() => {
@@ -151,7 +149,6 @@ export default function RequesterPage() {
       if (error || !data) { setSubmitError('Something went wrong. Try again.'); setSubmitting(false); return }
       requestId = data.id
     }
-
     setPendingRequestId(requestId)
 
     if (band.stripe_account_id) {
@@ -162,25 +159,18 @@ export default function RequesterPage() {
       })
       const { client_secret, error } = await res.json()
       if (error || !client_secret) { setSubmitError('Payment setup failed. Try again.'); setSubmitting(false); return }
-      setClientSecret(client_secret)
-      setSubmitting(false)
-      setStep('payment')
+      setClientSecret(client_secret); setSubmitting(false); setStep('payment')
     } else {
-      await savePlaceholderTip(requestId, finalAmount)
+      const token = crypto.randomUUID()
+      await supabase.from('tips').insert({
+        request_id: requestId, amount_cents: finalAmount,
+        requester_email: contact.type === 'email' ? contact.value : null,
+        requester_phone: contact.type === 'phone' ? contact.value : null,
+        stripe_payment_intent_id: `placeholder_${token}`,
+        tracking_token: token, status: 'held',
+      })
+      setTrackingToken(token); setStep('submitted'); setSubmitting(false)
     }
-  }
-
-  async function savePlaceholderTip(requestId: string, amountCents: number) {
-    if (!contact) return
-    const token = crypto.randomUUID()
-    await supabase.from('tips').insert({
-      request_id: requestId, amount_cents: amountCents,
-      requester_email: contact.type === 'email' ? contact.value : null,
-      requester_phone: contact.type === 'phone' ? contact.value : null,
-      stripe_payment_intent_id: `placeholder_${token}`,
-      tracking_token: token, status: 'held',
-    })
-    setTrackingToken(token); setStep('submitted'); setSubmitting(false)
   }
 
   async function handlePaymentSuccess(paymentIntentId: string) {
@@ -208,28 +198,29 @@ export default function RequesterPage() {
     setCustomAmount(''); setSubmitError(''); setClientSecret(null); setPendingRequestId(null)
   }
 
-  if (!contactLoaded || loading) {
-    return <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p className="label">Loading...</p></main>
-  }
-  if (!band) {
-    return (
-      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-        <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Artist not found.</p>
-      </main>
-    )
-  }
+  if (!contactLoaded || loading) return (
+    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p className="label">Loading...</p>
+    </main>
+  )
+
+  if (!band) return (
+    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Artist not found.</p>
+    </main>
+  )
+
   if (!contact) return <ContactPrompt onConfirm={(value, type) => setContact({ value, type })} />
-  if (!session) {
-    return (
-      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
-        <div>
-          <HollerLogo variant="wordmark" size={40} />
-          <h2 style={{ fontSize: '20px', margin: '16px 0 8px' }}>{band.name}</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No open session right now.</p>
-        </div>
-      </main>
-    )
-  }
+
+  if (!session) return (
+    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
+      <div>
+        <HollerLogo variant="wordmark" size={40} />
+        <h2 style={{ fontSize: '22px', margin: '16px 0 8px' }}>{band.name}</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '15px' }}>No open session right now.</p>
+      </div>
+    </main>
+  )
 
   const accepted = queue.filter(r => r.status === 'accepted')
   const pending = queue.filter(r => r.status === 'pending')
@@ -243,28 +234,26 @@ export default function RequesterPage() {
       appearance: {
         theme: 'night' as const,
         variables: {
-          colorBackground: '#261c0c', colorText: '#f5eed8', colorPrimary: '#e09030',
-          colorDanger: '#c04040', fontFamily: 'Arvo, serif',
-          borderRadius: '0px', colorInputBackground: '#1a1206', colorInputBorder: '#6a4e24',
+          colorBackground: '#1e1508', colorText: '#f5eed8', colorPrimary: '#e09030',
+          colorDanger: '#c04040', fontFamily: 'Rokkitt, serif',
+          borderRadius: '0px', colorInputBackground: '#120d04', colorInputBorder: '#6b4e20',
         },
       },
     }
     return (
-      <main style={{ minHeight: '100vh', padding: '0' }}>
-        <div style={{ padding: '20px 20px 0', borderBottom: '1px solid var(--border)', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={() => setStep('confirm')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', padding: '0 0 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            ← Back
-          </button>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', paddingBottom: '16px' }}>
-            {tipAmount === null ? `$${(parseFloat(customAmount)||0).toFixed(0)}` : `$${tipAmount}`} hold
+      <main style={{ minHeight: '100vh' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-warm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-raised)' }}>
+          <button onClick={() => setStep('confirm')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', padding: 0 }}>← Back</button>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+            ${tipAmount === null ? (parseFloat(customAmount)||0).toFixed(0) : tipAmount} tip
           </p>
         </div>
-        <div style={{ padding: '0 20px' }}>
+        <div style={{ padding: '24px 20px' }}>
           <Elements stripe={stripePromise} options={stripeOptions}>
             <PaymentForm onSuccess={handlePaymentSuccess} onError={setSubmitError} amount={tipAmount === null ? Math.round(parseFloat(customAmount) * 100) : tipAmount * 100} />
           </Elements>
-          {submitError && <p style={{ color: 'var(--danger)', fontSize: '13px', marginTop: '12px' }}>{submitError}</p>}
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px', textAlign: 'center', lineHeight: '1.6' }}>
+          {submitError && <p style={{ color: 'var(--danger)', fontSize: '14px', marginTop: '12px' }}>{submitError}</p>}
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px', textAlign: 'center', lineHeight: '1.6' }}>
             Your card is authorized now and charged only if the song gets played.
           </p>
         </div>
@@ -278,16 +267,13 @@ export default function RequesterPage() {
     const artist = boostingRequest?.artist ?? (freeTextMode ? freeTextArtist : selectedSong?.artist)
     return (
       <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center' }}>
-        <div style={{ marginBottom: '8px' }}>
-          <HollerLogo variant="wordmark" size={32} />
-        </div>
-        <p className="label-accent" style={{ marginBottom: '20px' }}>Request sent</p>
-        <h2 style={{ fontSize: '28px', marginBottom: '6px' }}>{title}</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '15px', marginBottom: '32px' }}>{artist}</p>
-        <a href={`/track/${trackingToken}`} style={{ display: 'block', width: '100%', maxWidth: '360px', padding: '14px', background: 'var(--bg-card)', border: '1px solid var(--border-warm)', color: 'var(--accent)', fontSize: '14px', textDecoration: 'none', marginBottom: '12px', textAlign: 'center' }}>
+        <p className="label-accent" style={{ marginBottom: '24px' }}>Request sent</p>
+        <h2 style={{ fontSize: '30px', marginBottom: '6px' }}>{title}</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '16px', marginBottom: '40px' }}>{artist}</p>
+        <a href={`/track/${trackingToken}`} style={{ display: 'block', width: '100%', maxWidth: '360px', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-warm)', color: 'var(--accent)', fontSize: '15px', textDecoration: 'none', marginBottom: '12px', textAlign: 'center' }}>
           Track your request
         </a>
-        <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', padding: '8px' }}>
+        <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', padding: '8px' }}>
           Request another song
         </button>
       </main>
@@ -297,12 +283,12 @@ export default function RequesterPage() {
   // ── BOOST ──────────────────────────────────────────
   if (step === 'boost' && boostingRequest) {
     return (
-      <main style={{ minHeight: '100vh', padding: '0' }}>
+      <main style={{ minHeight: '100vh' }}>
         <PageHeader onBack={reset} title="Add to this request" />
         <div style={{ padding: '20px' }}>
           <SongCard title={boostingRequest.title} artist={boostingRequest.artist} albumArt={boostingRequest.spotify_album_art_url} tipTotal={boostingRequest.tip_total} />
           <TipPicker amounts={tipAmounts} tipAmount={tipAmount} setTipAmount={setTipAmount} customAmount={customAmount} setCustomAmount={setCustomAmount} minTip={minTip} />
-          {submitError && <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '12px' }}>{submitError}</p>}
+          {submitError && <p style={{ color: 'var(--danger)', fontSize: '14px', marginBottom: '12px' }}>{submitError}</p>}
           <button className="btn-primary" style={{ opacity: submitting ? 0.6 : 1 }} onClick={() => handleProceedToPayment(true)} disabled={submitting}>
             {submitting ? 'Setting up...' : 'Continue'}
           </button>
@@ -317,17 +303,17 @@ export default function RequesterPage() {
     const song = freeTextMode ? { title: freeTextTitle, artist: freeTextArtist, album_art: null } : selectedSong!
     const rejectedMatch = queue.find(r => r.status === 'rejected' && r.title.toLowerCase() === song.title.toLowerCase() && r.artist.toLowerCase() === song.artist.toLowerCase())
     return (
-      <main style={{ minHeight: '100vh', padding: '0' }}>
+      <main style={{ minHeight: '100vh' }}>
         <PageHeader onBack={() => setStep('search')} title="Confirm request" />
         <div style={{ padding: '20px' }}>
           <SongCard title={song.title} artist={song.artist} albumArt={(song as any).album_art} />
           {rejectedMatch && (
-            <div style={{ padding: '12px 14px', background: 'var(--bg-raised)', border: '1px solid var(--border)', marginBottom: '20px' }}>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>The artist passed on this one earlier. You can still try.</p>
+            <div style={{ padding: '14px 16px', background: 'var(--bg-raised)', border: '1px solid var(--border-warm)', marginBottom: '20px' }}>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>The artist passed on this one earlier. You can still try.</p>
             </div>
           )}
           <TipPicker amounts={tipAmounts} tipAmount={tipAmount} setTipAmount={setTipAmount} customAmount={customAmount} setCustomAmount={setCustomAmount} minTip={minTip} />
-          {submitError && <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '12px' }}>{submitError}</p>}
+          {submitError && <p style={{ color: 'var(--danger)', fontSize: '14px', marginBottom: '12px' }}>{submitError}</p>}
           <button className="btn-primary" style={{ opacity: submitting ? 0.6 : 1 }} onClick={() => handleProceedToPayment(false)} disabled={submitting}>
             {submitting ? 'Setting up...' : 'Continue'}
           </button>
@@ -340,62 +326,62 @@ export default function RequesterPage() {
   // ── SEARCH ─────────────────────────────────────────
   if (step === 'search') {
     return (
-      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '16px 20px 0', borderBottom: '1px solid var(--border)' }}>
-          <button onClick={() => setStep('queue')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', padding: '0 0 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+        {/* Search bar — pinned at top, full attention */}
+        <div style={{ background: 'var(--bg-raised)', borderBottom: '2px solid var(--accent)', padding: '14px 20px' }}>
+          <button onClick={() => setStep('queue')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', padding: '0 0 10px', display: 'block' }}>
             ← Back
           </button>
           {!freeTextMode ? (
             <input
               ref={searchInputRef}
-              className="input"
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search for a song..."
-              style={{ marginBottom: '0', borderLeft: 'none', borderRight: 'none', borderTop: 'none', borderBottom: '2px solid var(--accent)', background: 'transparent', fontSize: '20px', padding: '12px 0' }}
+              style={{
+                width: '100%', background: 'none', border: 'none', outline: 'none',
+                color: 'var(--text)', fontFamily: "'Rokkitt', serif", fontSize: '22px',
+                padding: '4px 0',
+              }}
             />
           ) : (
-            <div>
-              <input className="input" type="text" value={freeTextTitle} onChange={e => setFreeTextTitle(e.target.value)} placeholder="Song title" autoFocus style={{ marginBottom: '8px' }} />
-              <input className="input" type="text" value={freeTextArtist} onChange={e => setFreeTextArtist(e.target.value)} placeholder="Artist" style={{ marginBottom: '12px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <input className="input" type="text" value={freeTextTitle} onChange={e => setFreeTextTitle(e.target.value)} placeholder="Song title" autoFocus />
+              <input className="input" type="text" value={freeTextArtist} onChange={e => setFreeTextArtist(e.target.value)} placeholder="Artist" />
             </div>
           )}
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1 }}>
           {!freeTextMode ? (
             <>
-              {searching && <p style={{ padding: '16px 20px', color: 'var(--text-muted)', fontSize: '13px' }}>Searching...</p>}
+              {searching && <p style={{ padding: '16px 20px', color: 'var(--text-muted)', fontSize: '14px' }}>Searching...</p>}
+              {!searching && searchQuery.length > 1 && searchResults.length === 0 && (
+                <p style={{ padding: '16px 20px', color: 'var(--text-muted)', fontSize: '14px' }}>No results. Try typing it in below.</p>
+              )}
               {searchResults.map(track => (
-                <button
-                  key={track.id}
-                  onClick={() => { setSelectedSong(track); setTipAmount(minTip); setStep('confirm') }}
-                  style={{ width: '100%', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', padding: '12px 20px', display: 'flex', gap: '12px', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}
-                >
-                  {track.album_art && <img src={track.album_art} alt="" style={{ width: '44px', height: '44px', objectFit: 'cover', flexShrink: 0 }} />}
+                <button key={track.id} onClick={() => { setSelectedSong(track); setTipAmount(minTip); setStep('confirm') }}
+                  style={{ width: '100%', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', padding: '13px 20px', display: 'flex', gap: '14px', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}>
+                  {track.album_art && <img src={track.album_art} alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }} />}
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: '15px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{track.title}</p>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist}</p>
+                    <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{track.title}</p>
+                    <p style={{ fontSize: '14px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist}</p>
                   </div>
                 </button>
               ))}
-              <div style={{ padding: '20px', textAlign: 'center' }}>
-                <button onClick={() => setFreeTextMode(true)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}>
+              <div style={{ padding: '20px', textAlign: 'center', borderTop: searchResults.length > 0 ? '1px solid var(--border)' : 'none' }}>
+                <button onClick={() => setFreeTextMode(true)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>
                   Not finding it? Type it in
                 </button>
               </div>
             </>
           ) : (
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <button
-                className="btn-primary"
-                onClick={() => { if (freeTextTitle.trim() && freeTextArtist.trim()) { setTipAmount(minTip); setStep('confirm') } }}
-                disabled={!freeTextTitle.trim() || !freeTextArtist.trim()}
-              >
+              <button className="btn-primary" onClick={() => { if (freeTextTitle.trim() && freeTextArtist.trim()) { setTipAmount(minTip); setStep('confirm') } }} disabled={!freeTextTitle.trim() || !freeTextArtist.trim()}>
                 Use this song
               </button>
-              <button onClick={() => { setFreeTextMode(false); setFreeTextTitle(''); setFreeTextArtist('') }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline', padding: '8px' }}>
+              <button onClick={() => { setFreeTextMode(false); setFreeTextTitle(''); setFreeTextArtist('') }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline', padding: '8px' }}>
                 Back to search
               </button>
             </div>
@@ -408,27 +394,30 @@ export default function RequesterPage() {
   // ── QUEUE ──────────────────────────────────────────
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+
       {showTipModal && (
         <TipModal bandId={band.id} bandName={band.name} venmoHandle={band.venmo_handle} minTip={minTip} onClose={() => setShowTipModal(false)} />
       )}
 
       {/* Header */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>{band.name}</p>
-          {session.venue_name && <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>{session.venue_name}</p>}
+      <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <h2 style={{ fontSize: '22px', marginBottom: '2px', fontFamily: "'Libre Baskerville', serif" }}>{band.name}</h2>
+            {session.venue_name && <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>{session.venue_name}</p>}
+          </div>
+          <button onClick={clearContact} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: '12px', padding: '4px', flexShrink: 0, marginTop: '2px' }}>
+            Not you?
+          </button>
         </div>
-        <button onClick={clearContact} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: '12px', padding: '4px' }}>
-          Not you?
-        </button>
       </div>
 
       {/* Primary CTA */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '10px' }}>
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-warm)', display: 'flex', gap: '10px', background: 'var(--bg)' }}>
         <button className="btn-primary" style={{ flex: 1, fontSize: '20px', padding: '14px' }} onClick={() => setStep('search')}>
           Request a song
         </button>
-        <button className="btn-ghost" style={{ padding: '14px 16px', fontSize: '12px' }} onClick={() => setShowTipModal(true)}>
+        <button className="btn-ghost" style={{ padding: '14px 18px', fontSize: '13px', width: 'auto' }} onClick={() => setShowTipModal(true)}>
           Tip
         </button>
       </div>
@@ -436,12 +425,11 @@ export default function RequesterPage() {
       {/* Up next */}
       {accepted.length > 0 && (
         <div>
-          <div className="section-header">
+          <div className="section-header-accent">
             <span className="label-accent">Up next</span>
+            <span className="label-accent">{accepted.length}</span>
           </div>
-          {accepted.map(req => (
-            <QueueRow key={req.id} req={req} onBoost={() => handleBoost(req)} highlight />
-          ))}
+          {accepted.map(req => <QueueRow key={req.id} req={req} onBoost={() => handleBoost(req)} highlight />)}
         </div>
       )}
 
@@ -452,15 +440,13 @@ export default function RequesterPage() {
             <span className="label">Requested</span>
             <span className="label">{pending.length}</span>
           </div>
-          {pending.map(req => (
-            <QueueRow key={req.id} req={req} onBoost={() => handleBoost(req)} />
-          ))}
+          {pending.map(req => <QueueRow key={req.id} req={req} onBoost={() => handleBoost(req)} />)}
         </div>
       )}
 
       {accepted.length === 0 && pending.length === 0 && (
-        <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '15px' }}>No requests yet. Be the first.</p>
+        <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '16px' }}>No requests yet. Be the first.</p>
         </div>
       )}
 
@@ -471,9 +457,7 @@ export default function RequesterPage() {
             <span className="label">Played tonight</span>
             <span className="label">{played.length}</span>
           </div>
-          {played.map(req => (
-            <QueueRow key={req.id} req={req} dim />
-          ))}
+          {played.map(req => <QueueRow key={req.id} req={req} dim />)}
         </div>
       )}
     </main>
@@ -486,28 +470,28 @@ function QueueRow({ req, onBoost, highlight, dim }: { req: QueueRequest; onBoost
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '11px 16px',
+      padding: '12px 16px',
       borderBottom: '1px solid var(--border)',
       background: highlight ? 'var(--bg-card)' : 'var(--bg-raised)',
-      opacity: dim ? 0.5 : 1,
+      opacity: dim ? 0.45 : 1,
       borderLeft: highlight ? '3px solid var(--accent)' : '3px solid transparent',
     }}>
       {req.spotify_album_art_url
-        ? <img src={req.spotify_album_art_url} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0 }} />
-        : <div style={{ width: '40px', height: '40px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border)' }} />
+        ? <img src={req.spotify_album_art_url} alt="" style={{ width: '44px', height: '44px', objectFit: 'cover', flexShrink: 0 }} />
+        : <div style={{ width: '44px', height: '44px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border-warm)' }} />
       }
       <div style={{ minWidth: 0, flex: 1 }}>
-        <p style={{ fontSize: '15px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '1px', color: highlight ? 'var(--text)' : 'var(--text)' }}>{req.title}</p>
+        <p style={{ fontSize: '16px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px', color: 'var(--text)' }}>{req.title}</p>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.artist}</p>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         {req.tip_total > 0 && (
-          <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '18px', color: 'var(--accent)', lineHeight: 1 }}>
+          <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '20px', color: 'var(--accent)', lineHeight: 1 }}>
             ${(req.tip_total / 100).toFixed(0)}
           </p>
         )}
         {onBoost && !dim && (
-          <button onClick={onBoost} style={{ background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", fontSize: '15px', padding: '5px 10px', cursor: 'pointer', letterSpacing: '0.04em' }}>
+          <button onClick={onBoost} style={{ background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", fontSize: '16px', padding: '6px 10px', cursor: 'pointer', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
             + Boost
           </button>
         )}
@@ -518,15 +502,15 @@ function QueueRow({ req, onBoost, highlight, dim }: { req: QueueRequest; onBoost
 
 function SongCard({ title, artist, albumArt, tipTotal }: { title: string; artist: string; albumArt: string | null; tipTotal?: number }) {
   return (
-    <div style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-warm)', marginBottom: '20px' }}>
+    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-warm)', marginBottom: '24px' }}>
       {albumArt
-        ? <img src={albumArt} alt="" style={{ width: '56px', height: '56px', objectFit: 'cover', flexShrink: 0 }} />
-        : <div style={{ width: '56px', height: '56px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border)' }} />
+        ? <img src={albumArt} alt="" style={{ width: '60px', height: '60px', objectFit: 'cover', flexShrink: 0 }} />
+        : <div style={{ width: '60px', height: '60px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border-warm)' }} />
       }
       <div style={{ minWidth: 0 }}>
-        <p style={{ fontSize: '17px', fontWeight: 700, marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</p>
+        <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</p>
         <p style={{ fontSize: '14px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</p>
-        {tipTotal && tipTotal > 0 && <p style={{ fontSize: '12px', color: 'var(--accent)', marginTop: '4px' }}>${(tipTotal / 100).toFixed(0)} already tipped</p>}
+        {tipTotal && tipTotal > 0 && <p style={{ fontSize: '13px', color: 'var(--accent)', marginTop: '4px' }}>${(tipTotal / 100).toFixed(0)} already tipped</p>}
       </div>
     </div>
   )
@@ -537,27 +521,27 @@ function TipPicker({ amounts, tipAmount, setTipAmount, customAmount, setCustomAm
   customAmount: string; setCustomAmount: (s: string) => void; minTip: number
 }) {
   return (
-    <div style={{ marginBottom: '20px' }}>
-      <p className="label" style={{ marginBottom: '10px' }}>Tip amount</p>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${amounts.length + 1}, 1fr)`, gap: '8px', marginBottom: '10px' }}>
+    <div style={{ marginBottom: '24px' }}>
+      <p className="label" style={{ marginBottom: '12px' }}>Tip amount</p>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${amounts.length + 1}, 1fr)`, gap: '8px', marginBottom: '12px' }}>
         {amounts.map(amt => (
           <button key={amt} onClick={() => { setTipAmount(amt); setCustomAmount('') }}
-            style={{ background: tipAmount === amt ? 'var(--accent)' : 'var(--bg-raised)', border: `1px solid ${tipAmount === amt ? 'var(--accent)' : 'var(--border-warm)'}`, color: tipAmount === amt ? '#1a1206' : 'var(--text)', fontFamily: "'Teko', sans-serif", fontSize: '22px', fontWeight: 600, padding: '12px 4px', cursor: 'pointer' }}>
+            style={{ background: tipAmount === amt ? 'var(--accent)' : 'var(--bg-card)', border: `1px solid ${tipAmount === amt ? 'var(--accent)' : 'var(--border-warm)'}`, color: tipAmount === amt ? '#120d04' : 'var(--text)', fontFamily: "'Teko', sans-serif", fontSize: '24px', fontWeight: 600, padding: '14px 4px', cursor: 'pointer' }}>
             ${amt}
           </button>
         ))}
         <button onClick={() => { setTipAmount(null); setCustomAmount('') }}
-          style={{ background: tipAmount === null ? 'var(--accent)' : 'var(--bg-raised)', border: `1px solid ${tipAmount === null ? 'var(--accent)' : 'var(--border-warm)'}`, color: tipAmount === null ? '#1a1206' : 'var(--text-muted)', fontFamily: "'Arvo', serif", fontSize: '11px', letterSpacing: '0.1em', padding: '12px 4px', cursor: 'pointer', textTransform: 'uppercase' }}>
+          style={{ background: tipAmount === null ? 'var(--accent)' : 'var(--bg-card)', border: `1px solid ${tipAmount === null ? 'var(--accent)' : 'var(--border-warm)'}`, color: tipAmount === null ? '#120d04' : 'var(--text-muted)', fontFamily: "'Rokkitt', serif", fontSize: '12px', letterSpacing: '0.1em', padding: '14px 4px', cursor: 'pointer', textTransform: 'uppercase', fontWeight: 600 }}>
           Other
         </button>
       </div>
       {tipAmount === null && (
         <div style={{ position: 'relative' }}>
-          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '16px' }}>$</span>
-          <input className="input" type="number" min={minTip} step="1" value={customAmount} onChange={e => setCustomAmount(e.target.value)} placeholder={String(minTip)} style={{ paddingLeft: '28px' }} autoFocus />
+          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '17px' }}>$</span>
+          <input className="input" type="number" min={minTip} step="1" value={customAmount} onChange={e => setCustomAmount(e.target.value)} placeholder={String(minTip)} style={{ paddingLeft: '30px' }} autoFocus />
         </div>
       )}
-      <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '10px', lineHeight: 1.5 }}>
         Minimum ${minTip}. Only charged if the song gets played.
       </p>
     </div>
@@ -566,18 +550,18 @@ function TipPicker({ amounts, tipAmount, setTipAmount, customAmount, setCustomAm
 
 function PageHeader({ onBack, title }: { onBack: () => void; title: string }) {
   return (
-    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', padding: 0 }}>←</button>
-      <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{title}</p>
+    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', padding: 0, flexShrink: 0 }}>←</button>
+      <p style={{ fontSize: '17px', fontWeight: 600, color: 'var(--text)' }}>{title}</p>
     </div>
   )
 }
 
 function ContactLine({ contact, onClear }: { contact: string; onClear: () => void }) {
   return (
-    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '16px', textAlign: 'center' }}>
+    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px', textAlign: 'center' }}>
       Receipt to {contact}.{' '}
-      <button onClick={onClear} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px', padding: 0, textDecoration: 'underline' }}>Not you?</button>
+      <button onClick={onClear} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', padding: 0, textDecoration: 'underline' }}>Not you?</button>
     </p>
   )
 }
@@ -602,7 +586,7 @@ function PaymentForm({ onSuccess, onError, amount }: { onSuccess: (id: string) =
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ marginBottom: '20px' }}><PaymentElement options={{ layout: { type: 'accordion', defaultCollapsed: false } }} /></div>
+      <div style={{ marginBottom: '24px' }}><PaymentElement options={{ layout: { type: 'accordion', defaultCollapsed: false } }} /></div>
       <button type="submit" className="btn-primary" style={{ opacity: processing ? 0.6 : 1 }} disabled={processing || !stripe}>
         {processing ? 'Processing...' : `Hold $${(amount / 100).toFixed(0)}`}
       </button>
