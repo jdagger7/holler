@@ -107,7 +107,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
       */}
       <text
         x="260"
-        y="184"
+        y="175"
         textAnchor="middle"
         fontFamily="'Teko', sans-serif"
         fontWeight="600"
