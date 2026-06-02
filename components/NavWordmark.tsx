@@ -18,7 +18,17 @@ export default function NavWordmark({ size = 36 }: Props) {
   }, [])
 
   return (
-    <a href={href} style={{ textDecoration: 'none', display: 'inline-block', lineHeight: 1 }}>
+    <a
+      href={href}
+      style={{
+        textDecoration: 'none',
+        display: 'inline-block',
+        lineHeight: 1,
+        padding: 0,
+        margin: 0,
+        verticalAlign: 'middle',
+      }}
+    >
       <HollerLogo variant="wordmark" size={size} />
     </a>
   )
