@@ -22,17 +22,15 @@ type Step = 'queue' | 'search' | 'confirm' | 'payment' | 'boost' | 'submitted'
 // Hand-placed marquee letter renderer
 // Each character gets a tiny random rotation + spacing nudge, seeded by position
 function MarqueeText({ text, fontSize, color }: { text: string; fontSize: number; color: string }) {
-  // Deterministic "random" values based on char index so they don't shift on re-render
   const chars = text.split('')
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'nowrap' }}>
       {chars.map((ch, i) => {
-        // Pseudo-random but deterministic per position
-        const seed = (i * 7 + ch.charCodeAt(0)) % 100
-        const rot = ((seed % 7) - 3) * 0.6  // -1.8 to +1.8 degrees
-        const nudgeX = ((seed * 3) % 5) - 2  // -2 to +2px
-        const nudgeY = ((seed * 5) % 4) - 1.5 // -1.5 to +1.5px
-        const extraSpace = ((seed * 2) % 4)    // 0-3px extra letter spacing
+        // Very subtle deterministic jitter — just enough to feel hand-placed
+        const seed = (i * 13 + ch.charCodeAt(0) * 7) % 100
+        const rot = ((seed % 9) - 4) * 0.12    // ±0.48° max
+        const nudgeY = ((seed * 3) % 5) * 0.3 - 0.6  // ±0.6px vertical only
+        const extraSpace = (seed % 3) - 1       // -1, 0, or +1px
         return (
           <span
             key={i}
@@ -40,8 +38,8 @@ function MarqueeText({ text, fontSize, color }: { text: string; fontSize: number
             style={{
               fontSize: `${fontSize}px`,
               color,
-              transform: `rotate(${rot}deg) translate(${nudgeX}px, ${nudgeY}px)`,
-              marginRight: ch === ' ' ? `${fontSize * 0.3}px` : `${extraSpace}px`,
+              transform: `rotate(${rot}deg) translateY(${nudgeY}px)`,
+              marginRight: ch === ' ' ? `${Math.round(fontSize * 0.25)}px` : `${extraSpace}px`,
               display: 'inline-block',
             }}
           >
@@ -61,16 +59,8 @@ function MarqueeHeader({ bandName, venueName, startedAt, contactDisplay, onClear
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
   const bulbCount = 26
 
-  // Split band name into up to 2 lines for the marquee
-  const words = bandName.toUpperCase().split(' ')
-  let line1 = '', line2 = ''
-  if (words.length <= 2) {
-    line1 = bandName.toUpperCase()
-  } else {
-    const mid = Math.ceil(words.length / 2)
-    line1 = words.slice(0, mid).join(' ')
-    line2 = words.slice(mid).join(' ')
-  }
+  // Band name always on one line — Teko is condensed enough
+  const nameLine = bandName.toUpperCase()
 
   return (
     <div className="marquee-wrap">

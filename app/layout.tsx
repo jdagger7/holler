@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import PaisleyBackground from '@/components/PaisleyBackground'
 
 export const metadata: Metadata = {
   title: 'Holler',
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <PaisleyBackground />
         <div className="page-container">
           {children}
         </div>
