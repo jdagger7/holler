@@ -75,7 +75,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         <polygon key={`l${y}`} points={`14,${y} 21,${y+7} 14,${y+14} 7,${y+7}`} fill="#6b4e20"/>
       ))}
       {/* Left border diamonds — small */}
-      {[58,82,106,130,154,178,202].map(y => (
+      {[63,87,111,135,159,183,207].map(y => (
         <polygon key={`ls${y}`} points={`14,${y} 17,${y+3} 14,${y+6} 11,${y+3}`} fill="#3d2c10"/>
       ))}
 
@@ -84,7 +84,7 @@ export default function HollerLogo({ variant = 'full', size }: Props) {
         <polygon key={`r${y}`} points={`506,${y} 513,${y+7} 506,${y+14} 499,${y+7}`} fill="#6b4e20"/>
       ))}
       {/* Right border diamonds — small */}
-      {[58,82,106,130,154,178,202].map(y => (
+      {[63,87,111,135,159,183,207].map(y => (
         <polygon key={`rs${y}`} points={`506,${y} 509,${y+3} 506,${y+6} 503,${y+3}`} fill="#3d2c10"/>
       ))}
 
