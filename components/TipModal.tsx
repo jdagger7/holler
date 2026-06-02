@@ -119,7 +119,7 @@ export default function TipModal({ bandId, bandName, venmoHandle, minTip, onClos
             </button>
           ))}
           <button onClick={() => { setAmount(0); setCustomAmount('') }}
-            style={{ background: amount === 0 ? 'var(--accent)' : 'var(--bg-raised)', border: `1px solid ${amount === 0 ? 'var(--accent)' : 'var(--border-warm)'}`, color: amount === 0 ? '#221a0a' : 'var(--text-muted)', fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', letterSpacing: '0.06em', padding: '10px 4px', cursor: 'pointer' }}>
+            style={{ background: amount === 0 ? 'var(--accent)' : 'var(--bg-raised)', border: `1px solid ${amount === 0 ? 'var(--accent)' : 'var(--border-warm)'}`, color: amount === 0 ? '#221a0a' : 'var(--text-muted)', fontFamily: "'Rokkitt', serif", fontSize: '11px', letterSpacing: '0.06em', padding: '10px 4px', cursor: 'pointer' }}>
             OTHER
           </button>
         </div>
@@ -200,13 +200,7 @@ function CardTipForm({ amount, onSuccess, onBack, onError }: {
   return (
     <form onSubmit={handleSubmit}>
       <div style={{ marginBottom: '20px' }}>
-        <PaymentElement options={{
-          layout: {
-            type: 'accordion',
-            defaultCollapsed: false,
-          },
-          paymentMethodOrder: ['apple_pay', 'google_pay', 'card'],
-        }} />
+        <PaymentElement options={{ layout: 'tabs', paymentMethodOrder: ['card'] }} />
       </div>
       <div style={{ display: 'flex', gap: '8px' }}>
         <button type="submit" className="btn-primary" style={{ flex: 1, opacity: processing ? 0.6 : 1 }} disabled={processing || !stripe}>

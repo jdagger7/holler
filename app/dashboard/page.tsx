@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, Suspense } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import NavWordmark from '@/components/NavWordmark'
@@ -15,7 +15,7 @@ type Band = {
 }
 type Session = { id: string; venue_name: string | null; started_at: string; status: string }
 
-function DashboardContent() {
+export default function DashboardPage() {
   const [band, setBand] = useState<Band | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
@@ -99,7 +99,7 @@ function DashboardContent() {
 
   async function handleConnectStripe() {
     setConnectingStripe(true)
-    const res = await fetch(`/api/stripe-connect-url?band_id=${band?.id}`)
+    const res = await fetch('/api/stripe-connect-url')
     const { url, error } = await res.json()
     if (error || !url) {
       setStripeMessage('Could not start Stripe setup. Try again.')
@@ -259,7 +259,7 @@ function DashboardContent() {
                 <p style={{ fontSize: '12px', color: 'var(--success)' }}>✓ Stripe connected</p>
                 <button
                   onClick={handleConnectStripe}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontFamily: "'Rokkitt', serif" }}
                 >
                   Reconnect
                 </button>
@@ -326,17 +326,5 @@ function DashboardContent() {
       </div>
 
     </main>
-  )
-}
-
-export default function DashboardPage() {
-  return (
-    <Suspense fallback={
-      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p className="label">Loading...</p>
-      </main>
-    }>
-      <DashboardContent />
-    </Suspense>
   )
 }

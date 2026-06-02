@@ -11,18 +11,14 @@ import { useRequesterContact } from '@/hooks/useRequesterContact'
 import TipModal from '@/components/TipModal'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
-
-const FONT = "'Arvo', serif"
-const FONT_MUTED: React.CSSProperties = { fontFamily: FONT, color: 'var(--text-muted)', fontSize: '14px' }
-const FONT_BODY: React.CSSProperties = { fontFamily: FONT, color: 'var(--text)', fontSize: '15px' }
+const F = "'Rokkitt', serif"
 
 type Band = { id: string; name: string; slug: string; min_tip_cents: number; stripe_account_id: string | null; venmo_handle: string | null }
-type Session = { id: string; venue_name: string | null; status: string }
+type Session = { id: string; venue_name: string | null; status: string; started_at: string }
 type QueueRequest = {
   id: string; title: string; artist: string
   spotify_album_art_url: string | null
-  status: string
-  tip_total: number; tip_count: number
+  status: string; tip_total: number; tip_count: number
 }
 type SpotifyTrack = { id: string; title: string; artist: string; album: string; album_art: string | null }
 type Step = 'queue' | 'search' | 'confirm' | 'payment' | 'boost' | 'submitted'
@@ -69,7 +65,6 @@ export default function RequesterPage() {
     if (data) {
       const merged = new Map<string, QueueRequest>()
       for (const r of data as any[]) {
-        // Skip requests that haven't had payment confirmed yet
         if (r.status === 'pending_payment') continue
         const key = `${r.title.toLowerCase()}||${r.artist.toLowerCase()}`
         const activeTips = (r.tips ?? []).filter((t: any) => t.status === 'held' || t.status === 'captured')
@@ -92,7 +87,7 @@ export default function RequesterPage() {
       const { data: bandData } = await supabase.from('bands').select('id, name, slug, min_tip_cents, stripe_account_id, venmo_handle').eq('slug', slug).single()
       if (!bandData) { setLoading(false); return }
       setBand(bandData)
-      const { data: sessionData } = await supabase.from('sessions').select('id, venue_name, status').eq('band_id', bandData.id).eq('status', 'active').single()
+      const { data: sessionData } = await supabase.from('sessions').select('id, venue_name, status, started_at').eq('band_id', bandData.id).eq('status', 'active').single()
       if (sessionData) { setSession(sessionData); await fetchQueue(sessionData.id) }
       setLoading(false)
     }
@@ -101,11 +96,11 @@ export default function RequesterPage() {
 
   useEffect(() => {
     if (!session) return
-    const channel = supabase.channel(`queue-${session.id}`)
+    const ch = supabase.channel(`queue-${session.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'requests', filter: `session_id=eq.${session.id}` }, () => fetchQueue(session.id))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tips' }, () => fetchQueue(session.id))
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    return () => { supabase.removeChannel(ch) }
   }, [session, fetchQueue])
 
   useEffect(() => {
@@ -120,8 +115,7 @@ export default function RequesterPage() {
       setSearching(true)
       try {
         const res = await fetch(`/api/spotify-search?q=${encodeURIComponent(searchQuery)}`)
-        const data = await res.json()
-        setSearchResults(data.tracks ?? [])
+        setSearchResults((await res.json()).tracks ?? [])
       } catch { setSearchResults([]) }
       setSearching(false)
     }, 350)
@@ -139,39 +133,25 @@ export default function RequesterPage() {
     setSubmitting(true); setSubmitError('')
 
     if (band.stripe_account_id) {
-      // For Stripe flow: create PaymentIntent (which also creates the request server-side)
       const body: any = {
-        band_id: band.id,
-        amount_cents: finalAmount,
-        session_id: session.id,
+        band_id: band.id, amount_cents: finalAmount, session_id: session.id,
         requester_email: contact.type === 'email' ? contact.value : null,
         requester_phone: contact.type === 'phone' ? contact.value : null,
       }
-
       if (isBoost && boostingRequest) {
         body.existing_request_id = boostingRequest.id
-        body.title = boostingRequest.title
-        body.artist = boostingRequest.artist
+        body.title = boostingRequest.title; body.artist = boostingRequest.artist
       } else {
         body.title = freeTextMode ? freeTextTitle.trim() : selectedSong!.title
         body.artist = freeTextMode ? freeTextArtist.trim() : selectedSong!.artist
         body.spotify_track_id = freeTextMode ? null : selectedSong!.id
         body.spotify_album_art_url = freeTextMode ? null : selectedSong!.album_art
       }
-
-      const res = await fetch('/api/stripe/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
+      const res = await fetch('/api/stripe/create-payment-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const { client_secret, request_id, error } = await res.json()
       if (error || !client_secret) { setSubmitError('Payment setup failed. Try again.'); setSubmitting(false); return }
-      setClientSecret(client_secret)
-      setPendingRequestId(request_id)
-      setSubmitting(false)
-      setStep('payment')
+      setClientSecret(client_secret); setPendingRequestId(request_id); setSubmitting(false); setStep('payment')
     } else {
-      // No Stripe — create request directly and save placeholder tip
       let requestId: string
       if (isBoost && boostingRequest) {
         requestId = boostingRequest.id
@@ -194,8 +174,7 @@ export default function RequesterPage() {
         request_id: requestId, amount_cents: finalAmount,
         requester_email: contact.type === 'email' ? contact.value : null,
         requester_phone: contact.type === 'phone' ? contact.value : null,
-        stripe_payment_intent_id: `placeholder_${token}`,
-        tracking_token: token, status: 'held',
+        stripe_payment_intent_id: `placeholder_${token}`, tracking_token: token, status: 'held',
       })
       setTrackingToken(token); setStep('submitted'); setSubmitting(false)
     }
@@ -205,28 +184,19 @@ export default function RequesterPage() {
     if (!contact || !pendingRequestId) return
     const finalAmount = tipAmount === null ? Math.round(parseFloat(customAmount) * 100) : tipAmount * 100
     const token = crypto.randomUUID()
-
-    // Promote request from pending_payment to pending now that payment is confirmed
     await supabase.from('requests').update({ status: 'pending' }).eq('id', pendingRequestId)
-
     await supabase.from('tips').insert({
       request_id: pendingRequestId, amount_cents: finalAmount,
       requester_email: contact.type === 'email' ? contact.value : null,
       requester_phone: contact.type === 'phone' ? contact.value : null,
-      stripe_payment_intent_id: paymentIntentId,
-      tracking_token: token, status: 'held',
+      stripe_payment_intent_id: paymentIntentId, tracking_token: token, status: 'held',
     })
     setTrackingToken(token); setStep('submitted')
   }
 
   async function handlePaymentAbandoned() {
-    // Clean up the pending_payment request if user goes back
-    if (pendingRequestId) {
-      await supabase.from('requests').delete().eq('id', pendingRequestId).eq('status', 'pending_payment')
-    }
-    setClientSecret(null)
-    setPendingRequestId(null)
-    setStep('confirm')
+    if (pendingRequestId) await supabase.from('requests').delete().eq('id', pendingRequestId).eq('status', 'pending_payment')
+    setClientSecret(null); setPendingRequestId(null); setStep('confirm')
   }
 
   function handleBoost(req: QueueRequest) {
@@ -240,26 +210,30 @@ export default function RequesterPage() {
     setCustomAmount(''); setSubmitError(''); setClientSecret(null); setPendingRequestId(null)
   }
 
+  // Contact display helper
+  const contactDisplay = contact
+    ? contact.type === 'email'
+      ? contact.value.split('@')[0]
+      : `···${contact.value.slice(-4)}`
+    : ''
+
   if (!contactLoaded || loading) return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <p className="label">Loading...</p>
     </main>
   )
-
   if (!band) return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <p style={FONT_MUTED}>Artist not found.</p>
+      <p style={{ fontFamily: F, color: 'var(--text-muted)' }}>Artist not found.</p>
     </main>
   )
-
   if (!contact) return <ContactPrompt onConfirm={(value, type) => setContact({ value, type })} />
-
   if (!session) return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
       <div>
         <HollerLogo variant="wordmark" size={40} />
         <h2 style={{ fontSize: '22px', margin: '16px 0 8px' }}>{band.name}</h2>
-        <p style={FONT_MUTED}>No open session right now.</p>
+        <p style={{ fontFamily: F, color: 'var(--text-muted)', fontSize: '15px' }}>No open session right now.</p>
       </div>
     </main>
   )
@@ -269,37 +243,29 @@ export default function RequesterPage() {
   const played = queue.filter(r => r.status === 'played')
   const tipAmounts = getTipAmounts()
 
-  // ── PAYMENT ──────────────────────────────────────────
+  const stripeAppearance = {
+    theme: 'night' as const,
+    variables: {
+      colorBackground: '#1e1508', colorText: '#f5eed8', colorPrimary: '#e09030',
+      colorDanger: '#c04040', fontFamily: 'Rokkitt, serif',
+      borderRadius: '0px', colorInputBackground: '#120d04', colorInputBorder: '#6b4e20',
+    },
+  }
+
+  // ── PAYMENT ──
   if (step === 'payment' && clientSecret) {
-    const stripeOptions = {
-      clientSecret,
-      appearance: {
-        theme: 'night' as const,
-        variables: {
-          colorBackground: '#1e1508', colorText: '#f5eed8', colorPrimary: '#e09030',
-          colorDanger: '#c04040', fontFamily: 'Arvo, serif',
-          borderRadius: '0px', colorInputBackground: '#120d04', colorInputBorder: '#6b4e20',
-          fontSizeBase: '16px',
-        },
-        rules: {
-          '.Label': { fontFamily: 'Arvo, serif', fontSize: '13px', letterSpacing: '0.05em' },
-          '.Input': { fontFamily: 'Arvo, serif', fontSize: '16px' },
-          '.Tab': { fontFamily: 'Arvo, serif' },
-        }
-      },
-    }
     return (
-      <main style={{ minHeight: '100vh', maxWidth: '680px', margin: '0 auto' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <button onClick={handlePaymentAbandoned} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', ...FONT_MUTED, padding: 0 }}>← Back</button>
-          <p style={FONT_MUTED}>${tipAmount === null ? (parseFloat(customAmount)||0).toFixed(0) : tipAmount} tip</p>
+      <main style={{ minHeight: '100vh' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button onClick={handlePaymentAbandoned} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: F, fontSize: '14px', padding: 0 }}>← Back</button>
+          <p style={{ fontFamily: F, color: 'var(--text-muted)', fontSize: '14px' }}>${tipAmount ?? parseFloat(customAmount)||0} tip</p>
         </div>
         <div style={{ padding: '24px 20px' }}>
-          <Elements stripe={stripePromise} options={stripeOptions}>
-            <PaymentForm onSuccess={handlePaymentSuccess} onError={setSubmitError} amount={tipAmount === null ? Math.round(parseFloat(customAmount) * 100) : tipAmount * 100} />
+          <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance }}>
+            <PaymentForm onSuccess={handlePaymentSuccess} onError={setSubmitError} amount={tipAmount === null ? Math.round(parseFloat(customAmount)*100) : tipAmount*100} />
           </Elements>
-          {submitError && <p style={{ color: 'var(--danger)', ...FONT_BODY, marginTop: '12px' }}>{submitError}</p>}
-          <p style={{ ...FONT_MUTED, fontSize: '13px', marginTop: '16px', textAlign: 'center', lineHeight: '1.6' }}>
+          {submitError && <p style={{ color: 'var(--danger)', fontFamily: F, fontSize: '14px', marginTop: '12px' }}>{submitError}</p>}
+          <p style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px', textAlign: 'center', lineHeight: '1.6' }}>
             Your card is authorized now and charged only if the song gets played.
           </p>
         </div>
@@ -307,88 +273,80 @@ export default function RequesterPage() {
     )
   }
 
-  // ── SUBMITTED ──────────────────────────────────────
+  // ── SUBMITTED ──
   if (step === 'submitted') {
     const title = boostingRequest?.title ?? (freeTextMode ? freeTextTitle : selectedSong?.title)
     const artist = boostingRequest?.artist ?? (freeTextMode ? freeTextArtist : selectedSong?.artist)
     return (
-      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center', maxWidth: '680px', margin: '0 auto' }}>
+      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center' }}>
         <p className="label-accent" style={{ marginBottom: '24px' }}>Request sent</p>
         <h2 style={{ fontSize: '30px', marginBottom: '6px' }}>{title}</h2>
-        <p style={{ ...FONT_MUTED, marginBottom: '40px' }}>{artist}</p>
-        <a href={`/track/${trackingToken}`} style={{ display: 'block', width: '100%', maxWidth: '360px', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-warm)', color: 'var(--accent)', ...FONT_BODY, textDecoration: 'none', marginBottom: '12px', textAlign: 'center' }}>
+        <p style={{ fontFamily: F, color: 'var(--text-muted)', fontSize: '16px', marginBottom: '40px' }}>{artist}</p>
+        <a href={`/track/${trackingToken}`} style={{ display: 'block', width: '100%', maxWidth: '360px', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-warm)', color: 'var(--accent)', fontFamily: F, fontSize: '15px', textDecoration: 'none', marginBottom: '12px', textAlign: 'center' }}>
           Track your request
         </a>
-        <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', ...FONT_MUTED, padding: '8px' }}>
+        <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: F, fontSize: '14px', padding: '8px' }}>
           Request another song
         </button>
       </main>
     )
   }
 
-  // ── BOOST ──────────────────────────────────────────
+  // ── BOOST ──
   if (step === 'boost' && boostingRequest) {
     return (
-      <main style={{ minHeight: '100vh', maxWidth: '680px', margin: '0 auto' }}>
+      <main style={{ minHeight: '100vh' }}>
         <PageHeader onBack={reset} title="Add to this request" />
         <div style={{ padding: '20px' }}>
           <SongCard title={boostingRequest.title} artist={boostingRequest.artist} albumArt={boostingRequest.spotify_album_art_url} tipTotal={boostingRequest.tip_total} />
           <TipPicker amounts={tipAmounts} tipAmount={tipAmount} setTipAmount={setTipAmount} customAmount={customAmount} setCustomAmount={setCustomAmount} minTip={minTip} />
-          {submitError && <p style={{ color: 'var(--danger)', ...FONT_BODY, marginBottom: '12px' }}>{submitError}</p>}
+          {submitError && <p style={{ color: 'var(--danger)', fontFamily: F, fontSize: '14px', marginBottom: '12px' }}>{submitError}</p>}
           <button className="btn-primary" style={{ opacity: submitting ? 0.6 : 1 }} onClick={() => handleProceedToPayment(true)} disabled={submitting}>
             {submitting ? 'Setting up...' : 'Continue'}
           </button>
-          <ContactLine contact={contact.value} onClear={clearContact} />
+          <ContactLine contact={contactDisplay} onClear={clearContact} />
         </div>
       </main>
     )
   }
 
-  // ── CONFIRM ────────────────────────────────────────
+  // ── CONFIRM ──
   if (step === 'confirm') {
     const song = freeTextMode ? { title: freeTextTitle, artist: freeTextArtist, album_art: null } : selectedSong!
     const rejectedMatch = queue.find(r => r.status === 'rejected' && r.title.toLowerCase() === song.title.toLowerCase() && r.artist.toLowerCase() === song.artist.toLowerCase())
     return (
-      <main style={{ minHeight: '100vh', maxWidth: '680px', margin: '0 auto' }}>
+      <main style={{ minHeight: '100vh' }}>
         <PageHeader onBack={() => setStep('search')} title="Confirm request" />
         <div style={{ padding: '20px' }}>
           <SongCard title={song.title} artist={song.artist} albumArt={(song as any).album_art} />
           {rejectedMatch && (
             <div style={{ padding: '14px 16px', background: 'var(--bg-raised)', border: '1px solid var(--border-warm)', marginBottom: '20px' }}>
-              <p style={{ ...FONT_MUTED, lineHeight: '1.6' }}>The artist passed on this one earlier. You can still try.</p>
+              <p style={{ fontFamily: F, fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>The artist passed on this one earlier. You can still try.</p>
             </div>
           )}
           <TipPicker amounts={tipAmounts} tipAmount={tipAmount} setTipAmount={setTipAmount} customAmount={customAmount} setCustomAmount={setCustomAmount} minTip={minTip} />
-          {submitError && <p style={{ color: 'var(--danger)', ...FONT_BODY, marginBottom: '12px' }}>{submitError}</p>}
+          {submitError && <p style={{ color: 'var(--danger)', fontFamily: F, fontSize: '14px', marginBottom: '12px' }}>{submitError}</p>}
           <button className="btn-primary" style={{ opacity: submitting ? 0.6 : 1 }} onClick={() => handleProceedToPayment(false)} disabled={submitting}>
             {submitting ? 'Setting up...' : 'Continue'}
           </button>
-          <ContactLine contact={contact.value} onClear={clearContact} />
+          <ContactLine contact={contactDisplay} onClear={clearContact} />
         </div>
       </main>
     )
   }
 
-  // ── SEARCH ─────────────────────────────────────────
+  // ── SEARCH ──
   if (step === 'search') {
     return (
-      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', maxWidth: '680px', margin: '0 auto' }}>
+      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ background: 'var(--bg-raised)', borderBottom: '2px solid var(--accent)', padding: '14px 20px' }}>
-          <button onClick={() => setStep('queue')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: FONT, fontSize: '14px', padding: '0 0 10px', display: 'block' }}>
+          <button onClick={() => setStep('queue')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: F, fontSize: '14px', padding: '0 0 10px', display: 'block' }}>
             ← Back
           </button>
           {!freeTextMode ? (
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+            <input ref={searchInputRef} type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search for a song..."
-              style={{
-                width: '100%', background: 'none', border: 'none', outline: 'none',
-                color: 'var(--text)', fontFamily: FONT, fontSize: '22px', padding: '4px 0',
-              }}
-            />
+              style={{ width: '100%', background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontFamily: F, fontSize: '22px', padding: '4px 0' }} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <input className="input" type="text" value={freeTextTitle} onChange={e => setFreeTextTitle(e.target.value)} placeholder="Song title" autoFocus />
@@ -396,26 +354,25 @@ export default function RequesterPage() {
             </div>
           )}
         </div>
-
         <div style={{ flex: 1 }}>
           {!freeTextMode ? (
             <>
-              {searching && <p style={{ padding: '16px 20px', ...FONT_MUTED }}>Searching...</p>}
+              {searching && <p style={{ padding: '16px 20px', fontFamily: F, color: 'var(--text-muted)', fontSize: '14px' }}>Searching...</p>}
               {!searching && searchQuery.length > 1 && searchResults.length === 0 && (
-                <p style={{ padding: '16px 20px', ...FONT_MUTED }}>No results. Try typing it in below.</p>
+                <p style={{ padding: '16px 20px', fontFamily: F, color: 'var(--text-muted)', fontSize: '14px' }}>No results. Try typing it in below.</p>
               )}
               {searchResults.map(track => (
                 <button key={track.id} onClick={() => { setSelectedSong(track); setTipAmount(minTip); setStep('confirm') }}
                   style={{ width: '100%', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', padding: '13px 20px', display: 'flex', gap: '14px', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}>
                   {track.album_art && <img src={track.album_art} alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }} />}
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontFamily: FONT, fontSize: '16px', fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{track.title}</p>
-                    <p style={{ fontFamily: FONT, fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist}</p>
+                    <p style={{ fontFamily: F, fontSize: '16px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{track.title}</p>
+                    <p style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist}</p>
                   </div>
                 </button>
               ))}
               <div style={{ padding: '20px', textAlign: 'center', borderTop: searchResults.length > 0 ? '1px solid var(--border)' : 'none' }}>
-                <button onClick={() => setFreeTextMode(true)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: FONT, fontSize: '14px', textDecoration: 'underline' }}>
+                <button onClick={() => setFreeTextMode(true)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: F, fontSize: '14px', textDecoration: 'underline' }}>
                   Not finding it? Type it in
                 </button>
               </div>
@@ -425,7 +382,7 @@ export default function RequesterPage() {
               <button className="btn-primary" onClick={() => { if (freeTextTitle.trim() && freeTextArtist.trim()) { setTipAmount(minTip); setStep('confirm') } }} disabled={!freeTextTitle.trim() || !freeTextArtist.trim()}>
                 Use this song
               </button>
-              <button onClick={() => { setFreeTextMode(false); setFreeTextTitle(''); setFreeTextArtist('') }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: FONT, fontSize: '14px', textDecoration: 'underline', padding: '8px' }}>
+              <button onClick={() => { setFreeTextMode(false); setFreeTextTitle(''); setFreeTextArtist('') }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: F, fontSize: '14px', textDecoration: 'underline', padding: '8px' }}>
                 Back to search
               </button>
             </div>
@@ -435,45 +392,59 @@ export default function RequesterPage() {
     )
   }
 
-  // ── QUEUE ──────────────────────────────────────────
+  // ── QUEUE ──
   return (
-    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', maxWidth: '680px', margin: '0 auto' }}>
-
+    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {showTipModal && (
         <TipModal bandId={band.id} bandName={band.name} venmoHandle={band.venmo_handle} minTip={minTip} onClose={() => setShowTipModal(false)} />
       )}
 
-      {/* Header */}
-      <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+      {/* Marquee header */}
+      <div style={{ background: 'var(--bg-card)', borderBottom: '2px solid var(--border-warm)', padding: '20px 20px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h2 style={{ fontSize: '22px', marginBottom: '2px' }}>{band.name}</h2>
-            {session.venue_name && <p style={{ fontFamily: FONT, fontSize: '14px', color: 'var(--text-muted)' }}>{session.venue_name}</p>}
+            <div style={{
+              fontFamily: "'Teko', sans-serif",
+              fontSize: '36px',
+              fontWeight: 600,
+              color: 'var(--text)',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              lineHeight: 1,
+              marginBottom: '6px',
+            }}>
+              {band.name}
+            </div>
+            {session.venue_name && (
+              <div style={{ fontFamily: F, fontSize: '14px', color: 'var(--accent)', letterSpacing: '0.04em' }}>
+                {session.venue_name}
+              </div>
+            )}
           </div>
-          <button onClick={clearContact} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontFamily: FONT, fontSize: '12px', padding: '4px', flexShrink: 0, marginTop: '2px' }}>
-            Not you?
+          <button onClick={clearContact} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontFamily: F, fontSize: '12px', padding: '4px', flexShrink: 0, marginTop: '2px' }}>
+            Not {contactDisplay}?
           </button>
         </div>
       </div>
 
-      {/* CTA */}
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-warm)', display: 'flex', gap: '10px' }}>
-        <button className="btn-primary" style={{ flex: 1, fontSize: '20px', padding: '14px' }} onClick={() => setStep('search')}>
+      {/* CTAs */}
+      <div style={{ padding: '12px 16px', display: 'flex', gap: '10px', background: 'var(--bg)', borderBottom: '1px solid var(--border-warm)' }}>
+        <button className="btn-primary" style={{ flex: 1, fontSize: '20px', padding: '13px' }} onClick={() => setStep('search')}>
           Request a song
         </button>
-        <button className="btn-ghost" style={{ padding: '14px 18px', width: 'auto' }} onClick={() => setShowTipModal(true)}>
+        <button className="btn-ghost" style={{ padding: '13px 24px', width: 'auto' }} onClick={() => setShowTipModal(true)}>
           Tip
         </button>
       </div>
 
-      {/* Up next */}
+      {/* Up next — most prominent */}
       {accepted.length > 0 && (
         <div>
           <div className="section-header-accent">
             <span className="label-accent">Up next</span>
             <span className="label-accent">{accepted.length}</span>
           </div>
-          {accepted.map(req => <QueueRow key={req.id} req={req} onBoost={() => handleBoost(req)} highlight />)}
+          {accepted.map(req => <QueueRow key={req.id} req={req} onBoost={() => handleBoost(req)} variant="upnext" />)}
         </div>
       )}
 
@@ -484,51 +455,65 @@ export default function RequesterPage() {
             <span className="label">Requested</span>
             <span className="label">{pending.length}</span>
           </div>
-          {pending.map(req => <QueueRow key={req.id} req={req} onBoost={() => handleBoost(req)} />)}
+          {pending.map(req => <QueueRow key={req.id} req={req} onBoost={() => handleBoost(req)} variant="pending" />)}
         </div>
       )}
 
       {accepted.length === 0 && pending.length === 0 && (
         <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-          <p style={{ ...FONT_MUTED, fontSize: '16px' }}>No requests yet. Be the first.</p>
+          <p style={{ fontFamily: F, color: 'var(--text-muted)', fontSize: '16px' }}>No requests yet. Be the first.</p>
         </div>
       )}
 
-      {/* Played */}
+      {/* Played — visually separated, pushed down, dimmed */}
       {played.length > 0 && (
         <div style={{ marginTop: 'auto' }}>
-          <div className="section-header">
-            <span className="label">Played tonight</span>
-            <span className="label">{played.length}</span>
+          <div className="section-header-played">
+            <span className="label" style={{ color: 'var(--text-dim)' }}>Played tonight</span>
+            <span className="label" style={{ color: 'var(--text-dim)' }}>{played.length}</span>
           </div>
-          {played.map(req => <QueueRow key={req.id} req={req} dim />)}
+          {played.map(req => <QueueRow key={req.id} req={req} variant="played" />)}
         </div>
       )}
     </main>
   )
 }
 
-function QueueRow({ req, onBoost, highlight, dim }: { req: QueueRequest; onBoost?: () => void; highlight?: boolean; dim?: boolean }) {
+// ── Queue row — three visual variants ──────────────────
+function QueueRow({ req, onBoost, variant }: {
+  req: QueueRequest
+  onBoost?: () => void
+  variant: 'upnext' | 'pending' | 'played'
+}) {
+  const isUpNext = variant === 'upnext'
+  const isPlayed = variant === 'played'
+
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
+      display: 'flex', alignItems: 'center', gap: '12px',
+      padding: isUpNext ? '14px 16px' : '11px 16px',
       borderBottom: '1px solid var(--border)',
-      background: highlight ? 'var(--bg-card)' : 'var(--bg-raised)',
-      opacity: dim ? 0.45 : 1,
-      borderLeft: highlight ? '3px solid var(--accent)' : '3px solid transparent',
+      background: isUpNext ? 'var(--bg-card)' : 'var(--bg-raised)',
+      opacity: isPlayed ? 0.4 : 1,
+      borderLeft: isUpNext ? '4px solid var(--accent)' : '4px solid transparent',
     }}>
       {req.spotify_album_art_url
-        ? <img src={req.spotify_album_art_url} alt="" style={{ width: '44px', height: '44px', objectFit: 'cover', flexShrink: 0 }} />
-        : <div style={{ width: '44px', height: '44px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border-warm)' }} />
+        ? <img src={req.spotify_album_art_url} alt="" style={{ width: isUpNext ? '48px' : '40px', height: isUpNext ? '48px' : '40px', objectFit: 'cover', flexShrink: 0 }} />
+        : <div style={{ width: isUpNext ? '48px' : '40px', height: isUpNext ? '48px' : '40px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border-warm)' }} />
       }
       <div style={{ minWidth: 0, flex: 1 }}>
-        <p style={{ fontFamily: "'Arvo', serif", fontSize: '16px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px', color: 'var(--text)' }}>{req.title}</p>
-        <p style={{ fontFamily: "'Arvo', serif", fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.artist}</p>
+        <p style={{ fontFamily: "'Rokkitt', serif", fontSize: isUpNext ? '17px' : '15px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px', color: 'var(--text)' }}>{req.title}</p>
+        <p style={{ fontFamily: "'Rokkitt', serif", fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.artist}</p>
       </div>
+      {/* Tip + boost grouped together on right */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        {req.tip_total > 0 && <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '20px', color: 'var(--accent)', lineHeight: 1 }}>${(req.tip_total / 100).toFixed(0)}</p>}
-        {onBoost && !dim && (
-          <button onClick={onBoost} style={{ background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", fontSize: '16px', padding: '6px 10px', cursor: 'pointer', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+        {req.tip_total > 0 && (
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontFamily: "'Teko', sans-serif", fontSize: isUpNext ? '22px' : '18px', color: 'var(--accent)', lineHeight: 1 }}>${(req.tip_total / 100).toFixed(0)}</p>
+          </div>
+        )}
+        {onBoost && !isPlayed && (
+          <button onClick={onBoost} style={{ background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', color: 'var(--accent)', fontFamily: "'Teko', sans-serif", fontSize: '15px', padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
             + Boost
           </button>
         )}
@@ -543,9 +528,9 @@ function SongCard({ title, artist, albumArt, tipTotal }: { title: string; artist
       {albumArt ? <img src={albumArt} alt="" style={{ width: '60px', height: '60px', objectFit: 'cover', flexShrink: 0 }} />
         : <div style={{ width: '60px', height: '60px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border-warm)' }} />}
       <div style={{ minWidth: 0 }}>
-        <p style={{ fontFamily: "'Arvo', serif", fontSize: '18px', fontWeight: 700, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</p>
-        <p style={{ fontFamily: "'Arvo', serif", fontSize: '14px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</p>
-        {tipTotal && tipTotal > 0 && <p style={{ fontFamily: "'Arvo', serif", fontSize: '13px', color: 'var(--accent)', marginTop: '4px' }}>${(tipTotal / 100).toFixed(0)} already tipped</p>}
+        <p style={{ fontFamily: "'Rokkitt', serif", fontSize: '18px', fontWeight: 600, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</p>
+        <p style={{ fontFamily: "'Rokkitt', serif", fontSize: '14px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</p>
+        {tipTotal && tipTotal > 0 && <p style={{ fontFamily: "'Rokkitt', serif", fontSize: '13px', color: 'var(--accent)', marginTop: '4px' }}>${(tipTotal / 100).toFixed(0)} already tipped</p>}
       </div>
     </div>
   )
@@ -566,17 +551,17 @@ function TipPicker({ amounts, tipAmount, setTipAmount, customAmount, setCustomAm
           </button>
         ))}
         <button onClick={() => { setTipAmount(null); setCustomAmount('') }}
-          style={{ background: tipAmount === null ? 'var(--accent)' : 'var(--bg-card)', border: `1px solid ${tipAmount === null ? 'var(--accent)' : 'var(--border-warm)'}`, color: tipAmount === null ? '#120d04' : 'var(--text-muted)', fontFamily: "'Arvo', serif", fontSize: '12px', letterSpacing: '0.08em', padding: '14px 4px', cursor: 'pointer', textTransform: 'uppercase', fontWeight: 700 }}>
+          style={{ background: tipAmount === null ? 'var(--accent)' : 'var(--bg-card)', border: `1px solid ${tipAmount === null ? 'var(--accent)' : 'var(--border-warm)'}`, color: tipAmount === null ? '#120d04' : 'var(--text-muted)', fontFamily: "'Rokkitt', serif", fontSize: '12px', letterSpacing: '0.08em', padding: '14px 4px', cursor: 'pointer', textTransform: 'uppercase', fontWeight: 600 }}>
           Other
         </button>
       </div>
       {tipAmount === null && (
         <div style={{ position: 'relative' }}>
-          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontFamily: "'Arvo', serif", fontSize: '17px' }}>$</span>
+          <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontFamily: "'Rokkitt', serif", fontSize: '17px' }}>$</span>
           <input className="input" type="number" min={minTip} step="1" value={customAmount} onChange={e => setCustomAmount(e.target.value)} placeholder={String(minTip)} style={{ paddingLeft: '30px' }} autoFocus />
         </div>
       )}
-      <p style={{ fontFamily: "'Arvo', serif", fontSize: '13px', color: 'var(--text-muted)', marginTop: '10px', lineHeight: 1.5 }}>
+      <p style={{ fontFamily: "'Rokkitt', serif", fontSize: '13px', color: 'var(--text-muted)', marginTop: '10px', lineHeight: 1.5 }}>
         Minimum ${minTip}. Only charged if the song gets played.
       </p>
     </div>
@@ -586,17 +571,17 @@ function TipPicker({ amounts, tipAmount, setTipAmount, customAmount, setCustomAm
 function PageHeader({ onBack, title }: { onBack: () => void; title: string }) {
   return (
     <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: "'Arvo', serif", fontSize: '14px', padding: 0, flexShrink: 0 }}>←</button>
-      <p style={{ fontFamily: "'Arvo', serif", fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>{title}</p>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: "'Rokkitt', serif", fontSize: '14px', padding: 0, flexShrink: 0 }}>←</button>
+      <p style={{ fontFamily: "'Rokkitt', serif", fontSize: '17px', fontWeight: 600, color: 'var(--text)' }}>{title}</p>
     </div>
   )
 }
 
 function ContactLine({ contact, onClear }: { contact: string; onClear: () => void }) {
   return (
-    <p style={{ fontFamily: "'Arvo', serif", fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px', textAlign: 'center' }}>
+    <p style={{ fontFamily: "'Rokkitt', serif", fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px', textAlign: 'center' }}>
       Receipt to {contact}.{' '}
-      <button onClick={onClear} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: "'Arvo', serif", fontSize: '13px', padding: 0, textDecoration: 'underline' }}>Not you?</button>
+      <button onClick={onClear} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: "'Rokkitt', serif", fontSize: '13px', padding: 0, textDecoration: 'underline' }}>Not you?</button>
     </p>
   )
 }
@@ -605,20 +590,14 @@ function PaymentForm({ onSuccess, onError, amount }: { onSuccess: (id: string) =
   const stripe = useStripe()
   const elements = useElements()
   const [processing, setProcessing] = useState(false)
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!stripe || !elements) return
     setProcessing(true)
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: window.location.href },
-      redirect: 'if_required',
-    })
+    const { error, paymentIntent } = await stripe.confirmPayment({ elements, confirmParams: { return_url: window.location.href }, redirect: 'if_required' })
     if (error) { onError(error.message ?? 'Payment failed.'); setProcessing(false) }
     else if (paymentIntent) onSuccess(paymentIntent.id)
   }
-
   return (
     <form onSubmit={handleSubmit}>
       <div style={{ marginBottom: '24px' }}><PaymentElement options={{ layout: { type: 'accordion', defaultCollapsed: false } }} /></div>
