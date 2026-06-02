@@ -1,21 +1,30 @@
-@import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Arvo:wght@400;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg:           #221a0a;
-  --bg-raised:    #2a2010;
-  --bg-card:      #2e2210;
-  --border:       #3e3018;
-  --border-warm:  #524020;
-  --border-bright:#706030;
-  --text:         #f2ead8;
-  --text-muted:   #c0a878;
-  --text-dim:     #7a6840;
-  --accent:       #d4882a;
+  /* Three clearly distinct surface tiers */
+  --bg:           #1a1206;
+  --bg-raised:    #261c0c;
+  --bg-card:      #321f0a;
+
+  /* Borders — stronger contrast than before */
+  --border:       #4a3518;
+  --border-warm:  #6a4e24;
+  --border-bright:#a07840;
+
+  /* Text — wider range */
+  --text:         #f5eed8;
+  --text-muted:   #c8aa78;
+  --text-dim:     #8a7050;
+
+  /* Accent */
+  --accent:       #e09030;
   --accent-dim:   #7a4810;
-  --accent-pale:  #301e08;
+  --accent-pale:  #2a1a06;
+
+  /* Status */
   --danger:       #c04040;
   --success:      #5aaa70;
   --star:         #e0c040;
@@ -26,22 +35,10 @@
 html, body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 15px;
+  font-family: 'Arvo', serif;
+  font-size: 16px;
   line-height: 1.6;
   min-height: 100vh;
-}
-
-/* Grain overlay */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 9999;
-  opacity: 0.3;
-  mix-blend-mode: multiply;
 }
 
 h1, h2, h3 {
@@ -49,7 +46,116 @@ h1, h2, h3 {
   line-height: 1.15;
 }
 
-/* Star divider */
+/* ── Cards ─────────────────────────────────────────── */
+
+/* Standard surface card — sits clearly above the bg */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-warm);
+  padding: 16px 18px;
+}
+
+/* Section container — less padding, tighter */
+.section {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  padding: 0;
+}
+
+/* Song row — used in queue lists */
+.song-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+.song-row:last-child { border-bottom: none; }
+.song-row:hover { background: var(--bg-card); }
+
+/* Ornate card — reserved for branding/homepage moments only */
+.card-ornate {
+  background: var(--bg-card);
+  position: relative;
+  padding: 32px;
+  border: 1px solid var(--border-warm);
+  box-shadow:
+    inset 0 0 0 3px var(--bg-card),
+    inset 0 0 0 4px var(--border);
+}
+.card-ornate::before {
+  content: '◆ ◆ ◆ ◆';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  color: var(--accent-dim);
+  font-size: 8px;
+  letter-spacing: 6px;
+  padding: 0 8px;
+  white-space: nowrap;
+  font-family: serif;
+}
+.card-ornate::after {
+  content: '◆ ◆ ◆ ◆';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  color: var(--accent-dim);
+  font-size: 8px;
+  letter-spacing: 6px;
+  padding: 0 8px;
+  white-space: nowrap;
+  font-family: serif;
+}
+.side-ornament {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent-dim);
+  font-size: 8px;
+  line-height: 1;
+  writing-mode: vertical-rl;
+  letter-spacing: 8px;
+  background: var(--bg-card);
+  padding: 8px 0;
+  font-family: serif;
+}
+.side-ornament-left  { left: -5px; }
+.side-ornament-right { right: -5px; }
+
+/* ── Section headers ────────────────────────────────── */
+.section-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── Labels ─────────────────────────────────────────── */
+.label {
+  font-family: 'Arvo', serif;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.label-accent {
+  font-family: 'Arvo', serif;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* ── Star divider ───────────────────────────────────── */
 .star-divider {
   display: flex;
   align-items: center;
@@ -66,116 +172,34 @@ h1, h2, h3 {
   background: var(--border-warm);
 }
 
-/* Base card */
-.card {
-  background: var(--bg-card);
-  position: relative;
-  padding: 28px;
-  border: 1px solid var(--border-warm);
-  box-shadow:
-    inset 0 0 0 3px var(--bg-card),
-    inset 0 0 0 4px var(--border);
-}
-
-/* Ornate card */
-.card-ornate {
-  background: var(--bg-card);
-  position: relative;
-  padding: 32px;
-  border: 1px solid var(--border-warm);
-  box-shadow:
-    inset 0 0 0 3px var(--bg-card),
-    inset 0 0 0 4px var(--border);
-}
-
-.card-ornate::before {
-  content: '◆ ◆ ◆ ◆';
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-card);
-  color: var(--accent-dim);
-  font-size: 8px;
-  letter-spacing: 6px;
-  padding: 0 8px;
-  white-space: nowrap;
-}
-
-.card-ornate::after {
-  content: '◆ ◆ ◆ ◆';
-  position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-card);
-  color: var(--accent-dim);
-  font-size: 8px;
-  letter-spacing: 6px;
-  padding: 0 8px;
-  white-space: nowrap;
-}
-
-.side-ornament {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--accent-dim);
-  font-size: 8px;
-  line-height: 1;
-  writing-mode: vertical-rl;
-  letter-spacing: 8px;
-  background: var(--bg-card);
-  padding: 8px 0;
-}
-.side-ornament-left  { left: -5px; }
-.side-ornament-right { right: -5px; }
-
-/* Labels */
-.label {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.label-accent {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-/* Buttons — normalized so <a> and <button> render identically */
+/* ── Buttons ─────────────────────────────────────────── */
 .btn-primary {
   background: var(--accent);
-  color: #221a0a;
+  color: #1a1206;
   font-family: 'Teko', sans-serif;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 10px 28px;
+  padding: 12px 28px;
   border: none;
   cursor: pointer;
   transition: opacity 0.15s;
   display: inline-block;
-  line-height: 1.2;
+  line-height: 1.1;
   text-align: center;
   text-decoration: none;
   vertical-align: middle;
+  width: 100%;
 }
-.btn-primary:hover    { opacity: 0.85; }
+.btn-primary:hover    { opacity: 0.88; }
 .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .btn-ghost {
   background: transparent;
   color: var(--text-muted);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  font-weight: 400;
+  font-family: 'Arvo', serif;
+  font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 9px 16px;
@@ -186,7 +210,6 @@ h1, h2, h3 {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  text-align: center;
   text-decoration: none;
   vertical-align: middle;
   appearance: none;
@@ -194,28 +217,30 @@ h1, h2, h3 {
 }
 .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
 
-/* Input */
+/* ── Input ───────────────────────────────────────────── */
 .input {
   width: 100%;
   background: var(--bg-raised);
   border: 1px solid var(--border-warm);
+  border-bottom: 2px solid var(--border-warm);
   color: var(--text);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 15px;
-  padding: 13px 16px;
+  font-family: 'Arvo', serif;
+  font-size: 16px;
+  padding: 14px 18px;
   outline: none;
   transition: border-color 0.15s;
+  border-radius: 0;
 }
-.input:focus        { border-color: var(--accent); }
+.input:focus        { border-color: var(--accent); border-bottom-color: var(--accent); }
 .input::placeholder { color: var(--text-dim); }
 
-/* ── Google Places Autocomplete dropdown ── */
+/* ── Google Places ───────────────────────────────────── */
 .pac-container {
   background: var(--bg-card) !important;
   border: 1px solid var(--border-warm) !important;
   border-top: none !important;
   box-shadow: none !important;
-  font-family: 'IBM Plex Mono', monospace !important;
+  font-family: 'Arvo', serif !important;
   margin-top: -1px;
   border-radius: 0 !important;
 }
@@ -223,7 +248,7 @@ h1, h2, h3 {
   background: var(--bg-card) !important;
   border-top: 1px solid var(--border) !important;
   color: var(--text-muted) !important;
-  font-family: 'IBM Plex Mono', monospace !important;
+  font-family: 'Arvo', serif !important;
   font-size: 13px !important;
   padding: 10px 14px !important;
   cursor: pointer !important;
@@ -232,19 +257,13 @@ h1, h2, h3 {
   flex-direction: column !important;
 }
 .pac-item:hover,
-.pac-item-selected {
-  background: var(--bg-raised) !important;
-}
+.pac-item-selected { background: var(--bg-raised) !important; }
 .pac-item-query {
   color: var(--text) !important;
   font-size: 13px !important;
   display: block !important;
 }
-.pac-matched {
-  color: var(--accent) !important;
-  font-weight: 500 !important;
-}
-/* Address on its own line, smaller */
+.pac-matched { color: var(--accent) !important; font-weight: 700 !important; }
 .pac-item > span:last-child:not(.pac-item-query) {
   color: var(--text-muted) !important;
   font-size: 11px !important;
@@ -252,7 +271,4 @@ h1, h2, h3 {
   white-space: normal !important;
   display: block !important;
 }
-.pac-icon,
-.pac-logo::after {
-  display: none !important;
-}
+.pac-icon, .pac-logo::after { display: none !important; }
