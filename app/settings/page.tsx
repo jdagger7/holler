@@ -63,7 +63,7 @@ export default function SettingsPage() {
     if (!band) return
     setStripeLoading(true)
     try {
-      const res = await fetch(`/api/stripe-connect-url?band_id=${band.id}`)
+      const res = await fetch(`/api/stripe/connect-url?band_id=${band.id}`)
       const { url, error } = await res.json()
       if (error || !url) { setError('Could not start Stripe setup. Try again.'); setStripeLoading(false); return }
       window.location.href = url
@@ -142,18 +142,18 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="label" style={{ display: 'block', marginBottom: '8px' }}>Holler link</label>
-              <div style={{ display: 'flex', alignItems: 'stretch' }}>
-                <div style={{ background: 'var(--bg)', border: '1px solid var(--border-warm)', borderRight: 'none', padding: '13px 10px', fontFamily: F, fontSize: '13px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', maxWidth: '140px', overflow: 'hidden' }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{slugPrefix}</span>
-                </div>
-                <input className="input" type="text" value={slug}
-                  onChange={e => { setSlugManuallyEdited(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')) }}
-                  required style={{ flex: 1, borderColor: slug !== band?.slug && slugAvailable === false ? 'var(--danger)' : slug !== band?.slug && slugAvailable === true ? 'var(--success)' : undefined }}
-                />
-              </div>
+              <label className="label" style={{ display: 'block', marginBottom: '8px' }}>Your handle</label>
+              <input className="input" type="text" value={slug}
+                onChange={e => { setSlugManuallyEdited(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')) }}
+                required
+                placeholder="your-handle"
+                style={{ borderColor: slug !== band?.slug && slugAvailable === false ? 'var(--danger)' : slug !== band?.slug && slugAvailable === true ? 'var(--success)' : undefined }}
+              />
+              <p style={{ fontFamily: F, fontSize: '12px', color: 'var(--text-dim)', marginTop: '8px', letterSpacing: '0.02em' }}>
+                ↳ {appUrl}/{slug || '…'}
+              </p>
               {slug !== band?.slug && (
-                <p style={{ fontFamily: F, fontSize: '11px', marginTop: '6px', color: slugAvailable === false ? 'var(--danger)' : slugAvailable === true ? 'var(--success)' : 'var(--text-muted)' }}>
+                <p style={{ fontFamily: F, fontSize: '11px', marginTop: '4px', color: slugAvailable === false ? 'var(--danger)' : slugAvailable === true ? 'var(--success)' : 'var(--text-muted)' }}>
                   {checkingSlug ? 'Checking...' : slugAvailable === true ? '✦ Available' : slugAvailable === false ? '✗ Already taken' : ''}
                 </p>
               )}

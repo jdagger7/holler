@@ -268,12 +268,12 @@ export default function SessionPage() {
         {/* Stat row */}
         <div style={{ display: 'flex', gap: '0', borderTop: '1px solid var(--border)', marginLeft: '-16px', marginRight: '-16px' }}>
           {[
-            { label: 'Requests', value: pending.length + accepted.length },
-            { label: 'Up next', value: accepted.length },
+            { label: 'Requests', value: requests.filter(r => r.status !== 'rejected').length },
             { label: 'Played', value: played.length },
+            { label: 'Tips', value: `$${(requests.reduce((s, r) => s + r.tip_total, 0) / 100).toFixed(0)}` },
           ].map((stat, i) => (
             <div key={stat.label} style={{ flex: 1, padding: '10px 12px', textAlign: 'center', borderLeft: i > 0 ? '1px solid var(--border)' : 'none' }}>
-              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '26px', color: stat.value > 0 ? 'var(--accent)' : 'var(--text-dim)', lineHeight: 1 }}>{stat.value}</p>
+              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '26px', color: 'var(--accent)', lineHeight: 1 }}>{stat.value}</p>
               <p className="label" style={{ fontSize: '9px', marginTop: '1px' }}>{stat.label}</p>
             </div>
           ))}

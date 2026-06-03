@@ -35,7 +35,7 @@ html, body {
 
 h1, h2, h3 { font-family: 'Libre Baskerville', serif; line-height: 1.15; }
 
-.page-container { max-width: 720px; margin: 0 auto; min-height: 100vh; position: relative; background: var(--bg); }
+.page-container { max-width: 720px; margin: 0 auto; min-height: 100vh; position: relative; }
 
 /* Top nav rail — consistent across all pages */
 .top-rail {
