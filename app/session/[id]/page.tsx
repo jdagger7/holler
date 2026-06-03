@@ -267,29 +267,29 @@ export default function SessionPage() {
 
         {/* Stats + audience link in one row */}
         <div style={{ borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'stretch' }}>
-          {/* Stats */}
+          {/* Stats — evenly spaced, fill left side */}
           {[
             { label: 'Requests', value: requests.filter(r => r.status !== 'rejected').length },
             { label: 'Played', value: played.length },
             { label: 'Tips', value: `$${(requests.reduce((s, r) => s + r.tip_total, 0) / 100).toFixed(0)}` },
           ].map((stat, i) => (
-            <div key={stat.label} style={{ padding: '10px 0', textAlign: 'center', width: '64px', flexShrink: 0, borderLeft: i > 0 ? '1px solid var(--border)' : 'none' }}>
-              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '24px', color: 'var(--accent)', lineHeight: 1 }}>{stat.value}</p>
+            <div key={stat.label} style={{ flex: 1, padding: '10px 8px', textAlign: 'center', borderLeft: i > 0 ? '1px solid var(--border)' : 'none' }}>
+              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '26px', color: 'var(--accent)', lineHeight: 1 }}>{stat.value}</p>
               <p className="label" style={{ fontSize: '8px', marginTop: '1px' }}>{stat.label}</p>
             </div>
           ))}
 
           {/* Divider */}
-          <div style={{ width: '1px', background: 'var(--border)', flexShrink: 0 }} />
+          <div style={{ width: '1px', background: 'var(--border-warm)', flexShrink: 0 }} />
 
-          {/* Audience link + actions */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '0 10px', minWidth: 0 }}>
+          {/* Audience link + actions — compact right side */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 10px', flexShrink: 0 }}>
+            <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', padding: '6px 10px' }} onClick={() => setShowQR(true)}>QR</button>
+            <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', padding: '6px 10px' }} onClick={handleCopyLink}>{copiedLink ? '✓' : 'Copy'}</button>
             <a href={queueUrl} target="_blank" rel="noopener noreferrer"
-              style={{ flex: 1, fontFamily: F, fontSize: '11px', color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {queueUrl}
+              style={{ fontFamily: F, fontSize: '10px', color: 'var(--text-dim)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              ↗
             </a>
-            <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0, padding: '6px 10px' }} onClick={() => setShowQR(true)}>QR</button>
-            <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0, padding: '6px 10px' }} onClick={handleCopyLink}>{copiedLink ? '✓' : 'Copy'}</button>
           </div>
         </div>
 

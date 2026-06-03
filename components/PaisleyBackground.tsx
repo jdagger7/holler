@@ -1,4 +1,4 @@
-// Server component — renders the bandana-style paisley pattern in the gutters
+// Server component — bandana-style paisley in gutters only, fades toward edges
 export default function PaisleyBackground() {
   return (
     <div
@@ -8,129 +8,168 @@ export default function PaisleyBackground() {
     >
       <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <pattern id="bandana" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
+          {/* Radial gradient mask — full opacity at edges, fades to 0 near center */}
+          {/* Two side masks — left and right gutters */}
+          <radialGradient id="fade-left" cx="0%" cy="50%" r="50%" fx="0%" fy="50%">
+            <stop offset="0%" stopColor="white" stopOpacity="1" />
+            <stop offset="60%" stopColor="white" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="white" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="fade-right" cx="100%" cy="50%" r="50%" fx="100%" fy="50%">
+            <stop offset="0%" stopColor="white" stopOpacity="1" />
+            <stop offset="60%" stopColor="white" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="white" stopOpacity="0" />
+          </radialGradient>
+          <mask id="gutter-fade">
+            <rect width="50%" height="100%" fill="url(#fade-left)" />
+            <rect x="50%" width="50%" height="100%" fill="url(#fade-right)" />
+          </mask>
 
-            {/* ── Large primary boteh — top-left, bold filled ── */}
-            <g transform="translate(42,52) rotate(-40)">
-              {/* Outer filled teardrop */}
-              <path d="M0,-30 C14,-30 26,-18 26,0 C26,16 12,30 0,38 C-12,30 -26,16 -26,0 C-26,-18 -14,-30 0,-30 Z"
-                fill="#3d2c10" opacity="0.7" />
-              {/* Inner lighter teardrop */}
-              <path d="M0,-20 C9,-20 17,-12 17,0 C17,10 8,20 0,25 C-8,20 -17,10 -17,0 C-17,-12 -9,-20 0,-20 Z"
-                fill="#6b4e20" opacity="0.5" />
-              {/* Core dot */}
-              <circle cx="0" cy="0" r="5" fill="#a07830" opacity="0.6" />
-              {/* Curved hook tip */}
-              <path d="M0,30 C6,40 16,44 13,36" fill="none" stroke="#3d2c10" strokeWidth="2" opacity="0.7" />
-              {/* Inner detail arc */}
-              <path d="M-16,0 C-16,-12 -8,-20 0,-20" fill="none" stroke="#a07830" strokeWidth="1" opacity="0.5" />
-              {/* Accent teardrop inside */}
-              <path d="M0,-12 C4,-12 8,-8 8,0 C8,5 4,10 0,12 C-4,10 -8,5 -8,0 C-8,-8 -4,-12 0,-12 Z"
-                fill="none" stroke="#a07830" strokeWidth="0.8" opacity="0.45" />
-              {/* Pearl dots border */}
+          <pattern id="bandana" x="0" y="0" width="180" height="180" patternUnits="userSpaceOnUse">
+
+            {/* ── PRIMARY BOTEH 1: large, top-left ── */}
+            <g transform="translate(38,50) rotate(-38)">
+              {/* Outer filled teardrop body */}
+              <path d="M0,-34 C16,-34 30,-20 30,0 C30,18 14,34 0,44 C-14,34 -30,18 -30,0 C-30,-20 -16,-34 0,-34 Z"
+                fill="#e8dfc0" opacity="0.55" />
+              {/* Mid teardrop */}
+              <path d="M0,-22 C10,-22 19,-13 19,0 C19,11 9,22 0,28 C-9,22 -19,11 -19,0 C-19,-13 -10,-22 0,-22 Z"
+                fill="#c8b888" opacity="0.45" />
+              {/* Inner teardrop */}
+              <path d="M0,-12 C6,-12 10,-7 10,0 C10,6 5,12 0,15 C-5,12 -10,6 -10,0 C-10,-7 -6,-12 0,-12 Z"
+                fill="#e8dfc0" opacity="0.5" />
+              {/* Core */}
+              <circle cx="0" cy="0" r="4" fill="#f5eed8" opacity="0.6" />
+              {/* Hooked tip — the 'cattail' curl */}
+              <path d="M0,38 C7,50 20,55 16,44 C12,36 4,38 0,44" fill="none" stroke="#e8dfc0" strokeWidth="2" opacity="0.6" />
+              {/* Inner arc details */}
+              <path d="M-18,0 C-18,-14 -9,-22 0,-22" fill="none" stroke="#c8b888" strokeWidth="1.2" opacity="0.5" />
+              <path d="M-10,4 C-10,-6 -5,-12 0,-12" fill="none" stroke="#e8dfc0" strokeWidth="0.8" opacity="0.4" />
+              {/* Pearl dot border */}
+              {[0,24,48,72,96,120,144,168,192,216,240,264,288,312,336].map((deg, i) => {
+                const r = 33, rad = deg * Math.PI / 180
+                return <circle key={i} cx={r * Math.sin(rad)} cy={-r * Math.cos(rad)} r="2" fill="#e8dfc0" opacity="0.5" />
+              })}
+              {/* Outer teardrop accent dots */}
+              <circle cx="0" cy="-32" r="2.5" fill="#c8b888" opacity="0.45" />
+              <circle cx="22" cy="-22" r="1.8" fill="#c8b888" opacity="0.4" />
+              <circle cx="-22" cy="-22" r="1.8" fill="#c8b888" opacity="0.4" />
+            </g>
+
+            {/* ── PRIMARY BOTEH 2: large, bottom-right, mirrored ── */}
+            <g transform="translate(142,130) rotate(142)">
+              <path d="M0,-34 C16,-34 30,-20 30,0 C30,18 14,34 0,44 C-14,34 -30,18 -30,0 C-30,-20 -16,-34 0,-34 Z"
+                fill="#e8dfc0" opacity="0.55" />
+              <path d="M0,-22 C10,-22 19,-13 19,0 C19,11 9,22 0,28 C-9,22 -19,11 -19,0 C-19,-13 -10,-22 0,-22 Z"
+                fill="#c8b888" opacity="0.45" />
+              <path d="M0,-12 C6,-12 10,-7 10,0 C10,6 5,12 0,15 C-5,12 -10,6 -10,0 C-10,-7 -6,-12 0,-12 Z"
+                fill="#e8dfc0" opacity="0.5" />
+              <circle cx="0" cy="0" r="4" fill="#f5eed8" opacity="0.6" />
+              <path d="M0,38 C7,50 20,55 16,44 C12,36 4,38 0,44" fill="none" stroke="#e8dfc0" strokeWidth="2" opacity="0.6" />
+              <path d="M-18,0 C-18,-14 -9,-22 0,-22" fill="none" stroke="#c8b888" strokeWidth="1.2" opacity="0.5" />
               {[0,30,60,90,120,150,180,210,240,270,300,330].map((deg, i) => {
-                const r = 29, rad = deg * Math.PI / 180
-                return <circle key={i} cx={r * Math.sin(rad)} cy={-r * Math.cos(rad)} r="1.8" fill="#6b4e20" opacity="0.55" />
+                const r = 33, rad = deg * Math.PI / 180
+                return <circle key={i} cx={r * Math.sin(rad)} cy={-r * Math.cos(rad)} r="2" fill="#e8dfc0" opacity="0.5" />
               })}
             </g>
 
-            {/* ── Large primary boteh — bottom-right, mirrored ── */}
-            <g transform="translate(158,148) rotate(140)">
-              <path d="M0,-30 C14,-30 26,-18 26,0 C26,16 12,30 0,38 C-12,30 -26,16 -26,0 C-26,-18 -14,-30 0,-30 Z"
-                fill="#3d2c10" opacity="0.7" />
-              <path d="M0,-20 C9,-20 17,-12 17,0 C17,10 8,20 0,25 C-8,20 -17,10 -17,0 C-17,-12 -9,-20 0,-20 Z"
-                fill="#6b4e20" opacity="0.5" />
-              <circle cx="0" cy="0" r="5" fill="#a07830" opacity="0.6" />
-              <path d="M0,30 C6,40 16,44 13,36" fill="none" stroke="#3d2c10" strokeWidth="2" opacity="0.7" />
-              <path d="M-16,0 C-16,-12 -8,-20 0,-20" fill="none" stroke="#a07830" strokeWidth="1" opacity="0.5" />
+            {/* ── MEDIUM BOTEH: top-right ── */}
+            <g transform="translate(142,38) rotate(28) scale(0.6)">
+              <path d="M0,-34 C16,-34 30,-20 30,0 C30,18 14,34 0,44 C-14,34 -30,18 -30,0 C-30,-20 -16,-34 0,-34 Z"
+                fill="#c8b888" opacity="0.45" />
+              <path d="M0,-20 C9,-20 16,-11 16,0 C16,10 8,20 0,25 C-8,20 -16,10 -16,0 C-16,-11 -9,-20 0,-20 Z"
+                fill="#e8dfc0" opacity="0.4" />
+              <circle cx="0" cy="0" r="3.5" fill="#f5eed8" opacity="0.55" />
+              <path d="M0,36 C6,46 17,50 13,41 C10,34 3,36 0,42" fill="none" stroke="#c8b888" strokeWidth="1.5" opacity="0.55" />
+              <path d="M-16,0 C-16,-12 -8,-20 0,-20" fill="none" stroke="#e8dfc0" strokeWidth="1" opacity="0.4" />
               {[0,45,90,135,180,225,270,315].map((deg, i) => {
-                const r = 29, rad = deg * Math.PI / 180
-                return <circle key={i} cx={r * Math.sin(rad)} cy={-r * Math.cos(rad)} r="1.8" fill="#6b4e20" opacity="0.55" />
+                const r = 30, rad = deg * Math.PI / 180
+                return <circle key={i} cx={r * Math.sin(rad)} cy={-r * Math.cos(rad)} r="1.5" fill="#c8b888" opacity="0.4" />
               })}
             </g>
 
-            {/* ── Medium boteh — top-right ── */}
-            <g transform="translate(158,42) rotate(30) scale(0.65)">
-              <path d="M0,-30 C14,-30 26,-18 26,0 C26,16 12,30 0,38 C-12,30 -26,16 -26,0 C-26,-18 -14,-30 0,-30 Z"
-                fill="#3d2c10" opacity="0.55" />
-              <path d="M0,-18 C8,-18 15,-10 15,0 C15,9 7,18 0,22 C-7,18 -15,9 -15,0 C-15,-10 -8,-18 0,-18 Z"
-                fill="#6b4e20" opacity="0.4" />
-              <circle cx="0" cy="0" r="4" fill="#a07830" opacity="0.5" />
-              <path d="M0,28 C5,36 13,38 10,31" fill="none" stroke="#3d2c10" strokeWidth="1.5" opacity="0.6" />
+            {/* ── MEDIUM BOTEH: bottom-left ── */}
+            <g transform="translate(38,142) rotate(208) scale(0.6)">
+              <path d="M0,-34 C16,-34 30,-20 30,0 C30,18 14,34 0,44 C-14,34 -30,18 -30,0 C-30,-20 -16,-34 0,-34 Z"
+                fill="#c8b888" opacity="0.45" />
+              <path d="M0,-20 C9,-20 16,-11 16,0 C16,10 8,20 0,25 C-8,20 -16,10 -16,0 C-16,-11 -9,-20 0,-20 Z"
+                fill="#e8dfc0" opacity="0.4" />
+              <circle cx="0" cy="0" r="3.5" fill="#f5eed8" opacity="0.55" />
+              <path d="M0,36 C6,46 17,50 13,41 C10,34 3,36 0,42" fill="none" stroke="#c8b888" strokeWidth="1.5" opacity="0.55" />
             </g>
 
-            {/* ── Medium boteh — bottom-left ── */}
-            <g transform="translate(42,158) rotate(210) scale(0.65)">
-              <path d="M0,-30 C14,-30 26,-18 26,0 C26,16 12,30 0,38 C-12,30 -26,16 -26,0 C-26,-18 -14,-30 0,-30 Z"
-                fill="#3d2c10" opacity="0.55" />
-              <path d="M0,-18 C8,-18 15,-10 15,0 C15,9 7,18 0,22 C-7,18 -15,9 -15,0 C-15,-10 -8,-18 0,-18 Z"
-                fill="#6b4e20" opacity="0.4" />
-              <circle cx="0" cy="0" r="4" fill="#a07830" opacity="0.5" />
-              <path d="M0,28 C5,36 13,38 10,31" fill="none" stroke="#3d2c10" strokeWidth="1.5" opacity="0.6" />
-            </g>
-
-            {/* ── Small teardrop clusters — bandana border style ── */}
-            {/* Top row small teardrops */}
-            {[20, 60, 100, 140, 180].map((x, i) => (
-              <g key={`tr${i}`} transform={`translate(${x}, 12) rotate(${i % 2 === 0 ? 0 : 180})`}>
-                <path d="M0,-8 C4,-8 7,-4 7,0 C7,4 3,8 0,10 C-3,8 -7,4 -7,0 C-7,-4 -4,-8 0,-8 Z"
-                  fill="#6b4e20" opacity="0.5" />
+            {/* ── SMALL CATTAIL TEARDROPS — border clusters ── */}
+            {/* Top edge row */}
+            {[15, 45, 75, 105, 135, 165].map((x, i) => (
+              <g key={`te${i}`} transform={`translate(${x}, 10) rotate(${i % 2 === 0 ? 0 : 180})`}>
+                <path d="M0,-10 C5,-10 9,-5 9,0 C9,5 4,10 0,13 C-4,10 -9,5 -9,0 C-9,-5 -5,-10 0,-10 Z"
+                  fill="#c8b888" opacity="0.5" />
+                <path d="M0,11 C2,16 7,18 5,13" fill="none" stroke="#c8b888" strokeWidth="1.2" opacity="0.45" />
+                <circle cx="0" cy="0" r="1.5" fill="#f5eed8" opacity="0.5" />
               </g>
             ))}
-            {/* Bottom row small teardrops */}
-            {[20, 60, 100, 140, 180].map((x, i) => (
-              <g key={`br${i}`} transform={`translate(${x}, 188) rotate(${i % 2 === 0 ? 180 : 0})`}>
-                <path d="M0,-8 C4,-8 7,-4 7,0 C7,4 3,8 0,10 C-3,8 -7,4 -7,0 C-7,-4 -4,-8 0,-8 Z"
-                  fill="#6b4e20" opacity="0.5" />
+            {/* Bottom edge row */}
+            {[15, 45, 75, 105, 135, 165].map((x, i) => (
+              <g key={`be${i}`} transform={`translate(${x}, 170) rotate(${i % 2 === 0 ? 180 : 0})`}>
+                <path d="M0,-10 C5,-10 9,-5 9,0 C9,5 4,10 0,13 C-4,10 -9,5 -9,0 C-9,-5 -5,-10 0,-10 Z"
+                  fill="#c8b888" opacity="0.5" />
+                <path d="M0,11 C2,16 7,18 5,13" fill="none" stroke="#c8b888" strokeWidth="1.2" opacity="0.45" />
+                <circle cx="0" cy="0" r="1.5" fill="#f5eed8" opacity="0.5" />
               </g>
             ))}
-            {/* Left col small teardrops */}
-            {[40, 80, 120, 160].map((y, i) => (
-              <g key={`lc${i}`} transform={`translate(12, ${y}) rotate(${i % 2 === 0 ? -90 : 90})`}>
-                <path d="M0,-8 C4,-8 7,-4 7,0 C7,4 3,8 0,10 C-3,8 -7,4 -7,0 C-7,-4 -4,-8 0,-8 Z"
-                  fill="#6b4e20" opacity="0.5" />
+            {/* Left edge column */}
+            {[20, 55, 90, 125, 160].map((y, i) => (
+              <g key={`le${i}`} transform={`translate(10, ${y}) rotate(${i % 2 === 0 ? -90 : 90})`}>
+                <path d="M0,-10 C5,-10 9,-5 9,0 C9,5 4,10 0,13 C-4,10 -9,5 -9,0 C-9,-5 -5,-10 0,-10 Z"
+                  fill="#c8b888" opacity="0.5" />
+                <path d="M0,11 C2,16 7,18 5,13" fill="none" stroke="#c8b888" strokeWidth="1.2" opacity="0.45" />
+                <circle cx="0" cy="0" r="1.5" fill="#f5eed8" opacity="0.5" />
               </g>
             ))}
-            {/* Right col small teardrops */}
-            {[40, 80, 120, 160].map((y, i) => (
-              <g key={`rc${i}`} transform={`translate(188, ${y}) rotate(${i % 2 === 0 ? 90 : -90})`}>
-                <path d="M0,-8 C4,-8 7,-4 7,0 C7,4 3,8 0,10 C-3,8 -7,4 -7,0 C-7,-4 -4,-8 0,-8 Z"
-                  fill="#6b4e20" opacity="0.5" />
+            {/* Right edge column */}
+            {[20, 55, 90, 125, 160].map((y, i) => (
+              <g key={`re${i}`} transform={`translate(170, ${y}) rotate(${i % 2 === 0 ? 90 : -90})`}>
+                <path d="M0,-10 C5,-10 9,-5 9,0 C9,5 4,10 0,13 C-4,10 -9,5 -9,0 C-9,-5 -5,-10 0,-10 Z"
+                  fill="#c8b888" opacity="0.5" />
+                <path d="M0,11 C2,16 7,18 5,13" fill="none" stroke="#c8b888" strokeWidth="1.2" opacity="0.45" />
+                <circle cx="0" cy="0" r="1.5" fill="#f5eed8" opacity="0.5" />
               </g>
             ))}
 
-            {/* ── Pearl/dot border lines ── */}
-            {[0,8,16,24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192].map((x, i) => (
-              <circle key={`pt${i}`} cx={x} cy="4" r="1.2" fill="#6b4e20" opacity="0.4" />
+            {/* ── PEARL DOT BORDERS ── */}
+            {Array.from({length: 22}, (_, i) => i * 9).map((x, i) => (
+              <circle key={`pd-t${i}`} cx={x} cy="3" r="1.5" fill="#e8dfc0" opacity="0.45" />
             ))}
-            {[0,8,16,24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192].map((x, i) => (
-              <circle key={`pb${i}`} cx={x} cy="196" r="1.2" fill="#6b4e20" opacity="0.4" />
+            {Array.from({length: 22}, (_, i) => i * 9).map((x, i) => (
+              <circle key={`pd-b${i}`} cx={x} cy="177" r="1.5" fill="#e8dfc0" opacity="0.45" />
             ))}
 
-            {/* ── Center accent ── */}
-            <circle cx="100" cy="100" r="4" fill="#6b4e20" opacity="0.3" />
-            <circle cx="100" cy="100" r="8" fill="none" stroke="#6b4e20" strokeWidth="0.8" opacity="0.25" />
-
-            {/* ── Diamond accents scattered ── */}
+            {/* ── DIAMOND ACCENTS ── */}
             {[
-              [100, 25], [175, 100], [100, 175], [25, 100],
-              [100, 60], [140, 100], [100, 140], [60, 100],
+              [90, 18], [162, 90], [90, 162], [18, 90],
+              [90, 54], [126, 90], [90, 126], [54, 90],
             ].map(([x, y], i) => (
-              <rect key={`d${i}`} x={x - 3} y={y - 3} width="6" height="6"
-                transform={`rotate(45 ${x} ${y})`} fill="#6b4e20" opacity="0.35" />
+              <rect key={`da${i}`} x={x-4} y={y-4} width="8" height="8"
+                transform={`rotate(45 ${x} ${y})`} fill="#e8dfc0" opacity="0.4" />
             ))}
 
-            {/* ── Tiny dot fills ── */}
+            {/* ── MINI COMMA/TEARDROP FILLS between main boteh ── */}
             {[
-              [30, 30], [170, 30], [30, 170], [170, 170],
-              [75, 75], [125, 75], [75, 125], [125, 125],
-            ].map(([x, y], i) => (
-              <circle key={`dd${i}`} cx={x} cy={y} r="1.5" fill="#a07830" opacity="0.28" />
+              [90, 90, 0], [60, 30, 45], [120, 30, -45],
+              [60, 150, -45], [120, 150, 45],
+            ].map(([x, y, rot], i) => (
+              <g key={`mf${i}`} transform={`translate(${x},${y}) rotate(${rot}) scale(0.35)`}>
+                <path d="M0,-34 C16,-34 30,-20 30,0 C30,18 14,34 0,44 C-14,34 -30,18 -30,0 C-30,-20 -16,-34 0,-34 Z"
+                  fill="none" stroke="#c8b888" strokeWidth="2" opacity="0.35" />
+                <path d="M0,36 C6,46 17,50 13,41" fill="none" stroke="#c8b888" strokeWidth="1.5" opacity="0.35" />
+              </g>
             ))}
 
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#bandana)" />
+
+        {/* Pattern fills with gutter-fade mask applied */}
+        <rect width="100%" height="100%" fill="url(#bandana)" mask="url(#gutter-fade)" />
       </svg>
     </div>
   )
