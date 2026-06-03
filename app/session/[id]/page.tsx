@@ -265,32 +265,25 @@ export default function SessionPage() {
           </div>
         </div>
 
-        {/* Stats + audience link in one row */}
-        <div style={{ borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'stretch' }}>
-          {/* Stats — evenly spaced, fill left side */}
+        {/* Action buttons row — QR, link, copy */}
+        <div style={{ display: 'flex', gap: '6px', padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
+          <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', padding: '6px 12px', flex: 1 }} onClick={() => setShowQR(true)}>QR Code</button>
+          <a href={queueUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', padding: '6px 12px', flex: 1, textDecoration: 'none' }}>Public link ↗</a>
+          <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', padding: '6px 12px', flex: 1 }} onClick={handleCopyLink}>{copiedLink ? 'Copied ✓' : 'Copy link'}</button>
+        </div>
+
+        {/* Stats row — full width, evenly spaced */}
+        <div style={{ display: 'flex', borderTop: '1px solid var(--border)' }}>
           {[
             { label: 'Requests', value: requests.filter(r => r.status !== 'rejected').length },
             { label: 'Played', value: played.length },
             { label: 'Tips', value: `$${(requests.reduce((s, r) => s + r.tip_total, 0) / 100).toFixed(0)}` },
           ].map((stat, i) => (
             <div key={stat.label} style={{ flex: 1, padding: '10px 8px', textAlign: 'center', borderLeft: i > 0 ? '1px solid var(--border)' : 'none' }}>
-              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '26px', color: 'var(--accent)', lineHeight: 1 }}>{stat.value}</p>
-              <p className="label" style={{ fontSize: '8px', marginTop: '1px' }}>{stat.label}</p>
+              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '28px', color: 'var(--accent)', lineHeight: 1 }}>{stat.value}</p>
+              <p className="label" style={{ fontSize: '8px', marginTop: '2px' }}>{stat.label}</p>
             </div>
           ))}
-
-          {/* Divider */}
-          <div style={{ width: '1px', background: 'var(--border-warm)', flexShrink: 0 }} />
-
-          {/* Audience link + actions — compact right side */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 10px', flexShrink: 0 }}>
-            <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', padding: '6px 10px' }} onClick={() => setShowQR(true)}>QR</button>
-            <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', padding: '6px 10px' }} onClick={handleCopyLink}>{copiedLink ? '✓' : 'Copy'}</button>
-            <a href={queueUrl} target="_blank" rel="noopener noreferrer"
-              style={{ fontFamily: F, fontSize: '10px', color: 'var(--text-dim)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-              ↗
-            </a>
-          </div>
         </div>
 
       </div>

@@ -1,4 +1,5 @@
-// Server component — bandana-style paisley in gutters only, fades toward edges
+// Server component — bandana-style paisley in gutters
+// Fades horizontally toward center, constant top-to-bottom, softens but doesn't go to black
 export default function PaisleyBackground() {
   return (
     <div
@@ -8,55 +9,46 @@ export default function PaisleyBackground() {
     >
       <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          {/* Radial gradient mask — full opacity at edges, fades to 0 near center */}
-          {/* Two side masks — left and right gutters */}
-          <radialGradient id="fade-left" cx="0%" cy="50%" r="50%" fx="0%" fy="50%">
-            <stop offset="0%" stopColor="white" stopOpacity="1" />
-            <stop offset="60%" stopColor="white" stopOpacity="0.6" />
+          {/* Horizontal-only linear gradient masks — fade toward center, stop at ~40% opacity not 0 */}
+          <linearGradient id="fade-l" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="white" stopOpacity="0.9" />
+            <stop offset="70%" stopColor="white" stopOpacity="0.4" />
             <stop offset="100%" stopColor="white" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="fade-right" cx="100%" cy="50%" r="50%" fx="100%" fy="50%">
-            <stop offset="0%" stopColor="white" stopOpacity="1" />
-            <stop offset="60%" stopColor="white" stopOpacity="0.6" />
+          </linearGradient>
+          <linearGradient id="fade-r" x1="100%" y1="0%" x2="0%" y2="0%">
+            <stop offset="0%" stopColor="white" stopOpacity="0.9" />
+            <stop offset="70%" stopColor="white" stopOpacity="0.4" />
             <stop offset="100%" stopColor="white" stopOpacity="0" />
-          </radialGradient>
-          <mask id="gutter-fade">
-            <rect width="50%" height="100%" fill="url(#fade-left)" />
-            <rect x="50%" width="50%" height="100%" fill="url(#fade-right)" />
+          </linearGradient>
+          <mask id="side-fade">
+            <rect width="50%" height="100%" fill="url(#fade-l)" />
+            <rect x="50%" width="50%" height="100%" fill="url(#fade-r)" />
           </mask>
 
           <pattern id="bandana" x="0" y="0" width="180" height="180" patternUnits="userSpaceOnUse">
 
             {/* ── PRIMARY BOTEH 1: large, top-left ── */}
             <g transform="translate(38,50) rotate(-38)">
-              {/* Outer filled teardrop body */}
               <path d="M0,-34 C16,-34 30,-20 30,0 C30,18 14,34 0,44 C-14,34 -30,18 -30,0 C-30,-20 -16,-34 0,-34 Z"
                 fill="#e8dfc0" opacity="0.55" />
-              {/* Mid teardrop */}
               <path d="M0,-22 C10,-22 19,-13 19,0 C19,11 9,22 0,28 C-9,22 -19,11 -19,0 C-19,-13 -10,-22 0,-22 Z"
                 fill="#c8b888" opacity="0.45" />
-              {/* Inner teardrop */}
               <path d="M0,-12 C6,-12 10,-7 10,0 C10,6 5,12 0,15 C-5,12 -10,6 -10,0 C-10,-7 -6,-12 0,-12 Z"
                 fill="#e8dfc0" opacity="0.5" />
-              {/* Core */}
               <circle cx="0" cy="0" r="4" fill="#f5eed8" opacity="0.6" />
-              {/* Hooked tip — the 'cattail' curl */}
               <path d="M0,38 C7,50 20,55 16,44 C12,36 4,38 0,44" fill="none" stroke="#e8dfc0" strokeWidth="2" opacity="0.6" />
-              {/* Inner arc details */}
               <path d="M-18,0 C-18,-14 -9,-22 0,-22" fill="none" stroke="#c8b888" strokeWidth="1.2" opacity="0.5" />
               <path d="M-10,4 C-10,-6 -5,-12 0,-12" fill="none" stroke="#e8dfc0" strokeWidth="0.8" opacity="0.4" />
-              {/* Pearl dot border */}
               {[0,24,48,72,96,120,144,168,192,216,240,264,288,312,336].map((deg, i) => {
                 const r = 33, rad = deg * Math.PI / 180
                 return <circle key={i} cx={r * Math.sin(rad)} cy={-r * Math.cos(rad)} r="2" fill="#e8dfc0" opacity="0.5" />
               })}
-              {/* Outer teardrop accent dots */}
               <circle cx="0" cy="-32" r="2.5" fill="#c8b888" opacity="0.45" />
               <circle cx="22" cy="-22" r="1.8" fill="#c8b888" opacity="0.4" />
               <circle cx="-22" cy="-22" r="1.8" fill="#c8b888" opacity="0.4" />
             </g>
 
-            {/* ── PRIMARY BOTEH 2: large, bottom-right, mirrored ── */}
+            {/* ── PRIMARY BOTEH 2: large, bottom-right ── */}
             <g transform="translate(142,130) rotate(142)">
               <path d="M0,-34 C16,-34 30,-20 30,0 C30,18 14,34 0,44 C-14,34 -30,18 -30,0 C-30,-20 -16,-34 0,-34 Z"
                 fill="#e8dfc0" opacity="0.55" />
@@ -99,7 +91,6 @@ export default function PaisleyBackground() {
             </g>
 
             {/* ── SMALL CATTAIL TEARDROPS — border clusters ── */}
-            {/* Top edge row */}
             {[15, 45, 75, 105, 135, 165].map((x, i) => (
               <g key={`te${i}`} transform={`translate(${x}, 10) rotate(${i % 2 === 0 ? 0 : 180})`}>
                 <path d="M0,-10 C5,-10 9,-5 9,0 C9,5 4,10 0,13 C-4,10 -9,5 -9,0 C-9,-5 -5,-10 0,-10 Z"
@@ -108,7 +99,6 @@ export default function PaisleyBackground() {
                 <circle cx="0" cy="0" r="1.5" fill="#f5eed8" opacity="0.5" />
               </g>
             ))}
-            {/* Bottom edge row */}
             {[15, 45, 75, 105, 135, 165].map((x, i) => (
               <g key={`be${i}`} transform={`translate(${x}, 170) rotate(${i % 2 === 0 ? 180 : 0})`}>
                 <path d="M0,-10 C5,-10 9,-5 9,0 C9,5 4,10 0,13 C-4,10 -9,5 -9,0 C-9,-5 -5,-10 0,-10 Z"
@@ -117,7 +107,6 @@ export default function PaisleyBackground() {
                 <circle cx="0" cy="0" r="1.5" fill="#f5eed8" opacity="0.5" />
               </g>
             ))}
-            {/* Left edge column */}
             {[20, 55, 90, 125, 160].map((y, i) => (
               <g key={`le${i}`} transform={`translate(10, ${y}) rotate(${i % 2 === 0 ? -90 : 90})`}>
                 <path d="M0,-10 C5,-10 9,-5 9,0 C9,5 4,10 0,13 C-4,10 -9,5 -9,0 C-9,-5 -5,-10 0,-10 Z"
@@ -126,7 +115,6 @@ export default function PaisleyBackground() {
                 <circle cx="0" cy="0" r="1.5" fill="#f5eed8" opacity="0.5" />
               </g>
             ))}
-            {/* Right edge column */}
             {[20, 55, 90, 125, 160].map((y, i) => (
               <g key={`re${i}`} transform={`translate(170, ${y}) rotate(${i % 2 === 0 ? 90 : -90})`}>
                 <path d="M0,-10 C5,-10 9,-5 9,0 C9,5 4,10 0,13 C-4,10 -9,5 -9,0 C-9,-5 -5,-10 0,-10 Z"
@@ -138,26 +126,25 @@ export default function PaisleyBackground() {
 
             {/* ── PEARL DOT BORDERS ── */}
             {Array.from({length: 22}, (_, i) => i * 9).map((x, i) => (
-              <circle key={`pd-t${i}`} cx={x} cy="3" r="1.5" fill="#e8dfc0" opacity="0.45" />
+              <circle key={`pt${i}`} cx={x} cy="3" r="1.5" fill="#e8dfc0" opacity="0.45" />
             ))}
             {Array.from({length: 22}, (_, i) => i * 9).map((x, i) => (
-              <circle key={`pd-b${i}`} cx={x} cy="177" r="1.5" fill="#e8dfc0" opacity="0.45" />
+              <circle key={`pb${i}`} cx={x} cy="177" r="1.5" fill="#e8dfc0" opacity="0.45" />
             ))}
 
             {/* ── DIAMOND ACCENTS ── */}
             {[
-              [90, 18], [162, 90], [90, 162], [18, 90],
-              [90, 54], [126, 90], [90, 126], [54, 90],
-            ].map(([x, y], i) => (
+              [90,18],[162,90],[90,162],[18,90],
+              [90,54],[126,90],[90,126],[54,90],
+            ].map(([x,y],i) => (
               <rect key={`da${i}`} x={x-4} y={y-4} width="8" height="8"
                 transform={`rotate(45 ${x} ${y})`} fill="#e8dfc0" opacity="0.4" />
             ))}
 
-            {/* ── MINI COMMA/TEARDROP FILLS between main boteh ── */}
+            {/* ── MINI OUTLINE BOTEH fills ── */}
             {[
-              [90, 90, 0], [60, 30, 45], [120, 30, -45],
-              [60, 150, -45], [120, 150, 45],
-            ].map(([x, y, rot], i) => (
+              [90,90,0],[60,30,45],[120,30,-45],[60,150,-45],[120,150,45],
+            ].map(([x,y,rot],i) => (
               <g key={`mf${i}`} transform={`translate(${x},${y}) rotate(${rot}) scale(0.35)`}>
                 <path d="M0,-34 C16,-34 30,-20 30,0 C30,18 14,34 0,44 C-14,34 -30,18 -30,0 C-30,-20 -16,-34 0,-34 Z"
                   fill="none" stroke="#c8b888" strokeWidth="2" opacity="0.35" />
@@ -168,8 +155,7 @@ export default function PaisleyBackground() {
           </pattern>
         </defs>
 
-        {/* Pattern fills with gutter-fade mask applied */}
-        <rect width="100%" height="100%" fill="url(#bandana)" mask="url(#gutter-fade)" />
+        <rect width="100%" height="100%" fill="url(#bandana)" mask="url(#side-fade)" />
       </svg>
     </div>
   )
