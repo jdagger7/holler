@@ -141,11 +141,9 @@ function ConfirmScreen({
         spacingUnit: '5px',
       },
       rules: {
-        '.Tab': { border: '1px solid #6b4e20', padding: '10px 16px', fontFamily: 'Arvo, serif' },
-        '.Tab--selected': { border: '1px solid #e09030', color: '#e09030' },
-        '.Tab:hover': { border: '1px solid #a07830' },
         '.Label': { fontFamily: 'Arvo, serif', fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c8a870' },
         '.Input': { fontFamily: 'Arvo, serif', fontSize: '16px', padding: '12px 14px' },
+        '.Block': { border: '1px solid #6b4e20' },
       }
     }
   } : null
@@ -295,7 +293,14 @@ function PaymentForm({ onSuccess, onError, amount }: {
     setProcessing(true)
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
-      confirmParams: { return_url: window.location.href },
+      confirmParams: {
+        return_url: window.location.href,
+        payment_method_data: {
+          billing_details: {
+            address: { country: 'US' }
+          }
+        }
+      },
       redirect: 'if_required',
     })
     if (error) { onError(error.message ?? 'Payment failed.'); setProcessing(false) }
@@ -306,8 +311,17 @@ function PaymentForm({ onSuccess, onError, amount }: {
     <form onSubmit={handleSubmit}>
       <div style={{ marginBottom: '20px' }}>
         <PaymentElement options={{
-          layout: { type: 'tabs', defaultCollapsed: false },
+          layout: 'auto',
           wallets: { applePay: 'auto', googlePay: 'auto' },
+          fields: {
+            billingDetails: {
+              name: 'never',
+              email: 'never',
+              phone: 'never',
+              address: 'never',
+            }
+          },
+          terms: { card: 'never' },
         }} />
       </div>
       <button type="submit" className="btn-primary"
