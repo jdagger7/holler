@@ -143,7 +143,7 @@ function DashboardContent() {
               {/* Single clean config summary */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                 <ConfigRow icon="⬡" label="Link" value={`${appUrl}/${band.slug}`} isLink href={queueUrl} />
-                <ConfigRow icon="$" label="Min request tip" value={`$${minTip}`} />
+                <ConfigRow icon="$" label="Min tip" value={`$${minTip}`} />
                 <ConfigRow icon="◈" label="Stripe" value={band.stripe_account_id ? 'Connected' : 'Not connected'} valueColor={band.stripe_account_id ? 'var(--success)' : 'var(--danger)'} />
                 {band.venmo_handle && <ConfigRow icon="V" label="Venmo" value={`@${band.venmo_handle}`} />}
               </div>
@@ -205,7 +205,7 @@ function ConfigRow({ icon, label, value, isLink, href, valueColor }: {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
       <span style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-dim)', width: '14px', textAlign: 'center', flexShrink: 0 }}>{icon}</span>
-      <span style={{ fontFamily: F, fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase', width: '110px', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontFamily: F, fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase', width: '90px', flexShrink: 0, whiteSpace: 'nowrap' }}>{label}</span>
       {isLink && href ? (
         <a href={href} style={{ fontFamily: F, fontSize: '13px', color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</a>
       ) : (

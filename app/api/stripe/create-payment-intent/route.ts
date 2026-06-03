@@ -6,68 +6,65 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const PLATFORM_FEE_PERCENT = 0.05
 
 export async function POST(request: NextRequest) {
+  const debugLog: string[] = []
+
   try {
+    const body = await request.json()
     const {
-      band_id,
-      amount_cents,
-      // Song details — request created here so it only appears after payment intent is created
-      session_id,
-      title,
-      artist,
-      spotify_track_id,
-      spotify_album_art_url,
-      requester_email,
-      requester_phone,
-      // For boosts, pass existing request_id instead
-      existing_request_id,
-    } = await request.json()
+      band_id, amount_cents, session_id, title, artist,
+      spotify_track_id, spotify_album_art_url,
+      requester_email, requester_phone, existing_request_id,
+    } = body
+
+    debugLog.push(`body_received: band_id=${band_id}, amount_cents=${amount_cents}, session_id=${session_id}`)
 
     if (!band_id || !amount_cents || !session_id) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing required fields', debug: debugLog }, { status: 400 })
     }
-
-    if (amount_cents < 500) {
-      return NextResponse.json({ error: 'Minimum tip is $5' }, { status: 400 })
+    if (amount_cents < 100) {
+      return NextResponse.json({ error: 'Minimum tip is $1', debug: debugLog }, { status: 400 })
     }
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
+    debugLog.push('supabase_client_created')
 
-    const { data: band } = await supabase
+    const { data: band, error: bandError } = await supabase
       .from('bands').select('stripe_account_id, name').eq('id', band_id).single()
 
+    debugLog.push(`band_fetch: ${bandError ? 'ERROR: ' + bandError.message : 'ok, stripe=' + band?.stripe_account_id}`)
+
     if (!band?.stripe_account_id) {
-      return NextResponse.json({ error: 'Artist has not connected Stripe' }, { status: 400 })
+      return NextResponse.json({ error: 'Artist has not connected Stripe', debug: debugLog }, { status: 400 })
     }
 
-    // Create the request row now — but mark it as 'pending_payment'
-    // so it doesn't show in the public queue until payment is confirmed
     let requestId = existing_request_id
     if (!requestId) {
       const { data: req, error: reqError } = await supabase
         .from('requests')
         .insert({
-          session_id,
-          title,
-          artist,
+          session_id, title, artist,
           spotify_track_id: spotify_track_id ?? null,
           spotify_album_art_url: spotify_album_art_url ?? null,
           requester_email: requester_email ?? null,
           requester_phone: requester_phone ?? null,
-          status: 'pending_payment', // hidden from queue until payment confirmed
+          status: 'pending_payment',
         })
         .select('id').single()
 
+      debugLog.push(`request_insert: ${reqError ? 'ERROR: ' + reqError.message + ' code=' + reqError.code : 'ok, id=' + req?.id}`)
+
       if (reqError || !req) {
-        return NextResponse.json({ error: 'Failed to create request' }, { status: 500 })
+        return NextResponse.json({ error: 'Failed to create request: ' + reqError?.message, debug: debugLog }, { status: 500 })
       }
       requestId = req.id
     }
 
-    const platformFee = Math.round(amount_cents * PLATFORM_FEE_PERCENT)
+    debugLog.push(`creating_payment_intent: amount=${amount_cents}, dest=${band.stripe_account_id}`)
 
+    const platformFee = Math.round(amount_cents * PLATFORM_FEE_PERCENT)
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount_cents,
       currency: 'usd',
@@ -79,15 +76,16 @@ export async function POST(request: NextRequest) {
       metadata: { request_id: requestId, band_id, session_id },
     })
 
-    console.log('PaymentIntent created:', paymentIntent.id, 'request:', requestId)
+    debugLog.push(`payment_intent_created: ${paymentIntent.id}`)
 
     return NextResponse.json({
       client_secret: paymentIntent.client_secret,
       payment_intent_id: paymentIntent.id,
       request_id: requestId,
+      debug: debugLog,
     })
   } catch (err: any) {
-    console.error('Create PaymentIntent error:', err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    debugLog.push(`caught_exception: ${err.message}`)
+    return NextResponse.json({ error: err.message, debug: debugLog }, { status: 500 })
   }
 }

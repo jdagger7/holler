@@ -246,48 +246,53 @@ export default function SessionPage() {
         </button>
       </div>
 
-      {/* Session header — dressed up */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '2px solid var(--border-warm)', padding: '16px 16px 0' }}>
-        {/* Venue + time */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+      {/* Session header — single cohesive block */}
+      <div style={{ background: 'var(--bg-card)', borderBottom: '3px solid var(--border-warm)' }}>
+
+        {/* Venue + time + live badge */}
+        <div style={{ padding: '14px 16px 12px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
           <div>
-            <h2 style={{ fontFamily: "'Libre Baskerville', serif", fontSize: '20px', fontWeight: 700, marginBottom: '2px' }}>
+            <h2 style={{ fontFamily: "'Libre Baskerville', serif", fontSize: '20px', fontWeight: 700, marginBottom: '3px' }}>
               {session?.venue_name ?? 'No venue set'}
             </h2>
-            <p style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-muted)' }}>
-              Started {startTime} · {new Date(session?.started_at ?? '').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            <p style={{ fontFamily: F, fontSize: '12px', color: 'var(--text-muted)' }}>
+              {new Date(session?.started_at ?? '').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · started {startTime}
             </p>
           </div>
-          {/* Live indicator */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', padding: '4px 10px', flexShrink: 0 }}>
-            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--danger)', boxShadow: '0 0 6px var(--danger)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', padding: '4px 10px', flexShrink: 0 }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--danger)', boxShadow: '0 0 5px var(--danger)' }} />
             <span style={{ fontFamily: F, fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--accent)' }}>Live</span>
           </div>
         </div>
 
-        {/* Stat row */}
-        <div style={{ display: 'flex', gap: '0', borderTop: '1px solid var(--border)', marginLeft: '-16px', marginRight: '-16px' }}>
+        {/* Stats + audience link in one row */}
+        <div style={{ borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'stretch' }}>
+          {/* Stats */}
           {[
             { label: 'Requests', value: requests.filter(r => r.status !== 'rejected').length },
             { label: 'Played', value: played.length },
             { label: 'Tips', value: `$${(requests.reduce((s, r) => s + r.tip_total, 0) / 100).toFixed(0)}` },
           ].map((stat, i) => (
-            <div key={stat.label} style={{ flex: 1, padding: '10px 12px', textAlign: 'center', borderLeft: i > 0 ? '1px solid var(--border)' : 'none' }}>
-              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '26px', color: 'var(--accent)', lineHeight: 1 }}>{stat.value}</p>
-              <p className="label" style={{ fontSize: '9px', marginTop: '1px' }}>{stat.label}</p>
+            <div key={stat.label} style={{ padding: '10px 0', textAlign: 'center', width: '64px', flexShrink: 0, borderLeft: i > 0 ? '1px solid var(--border)' : 'none' }}>
+              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '24px', color: 'var(--accent)', lineHeight: 1 }}>{stat.value}</p>
+              <p className="label" style={{ fontSize: '8px', marginTop: '1px' }}>{stat.label}</p>
             </div>
           ))}
-        </div>
-      </div>
 
-      {/* Audience link bar */}
-      <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <a href={queueUrl} target="_blank" rel="noopener noreferrer"
-          style={{ flex: 1, fontFamily: F, fontSize: '12px', color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {queueUrl}
-        </a>
-        <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0 }} onClick={() => setShowQR(true)}>QR</button>
-        <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0 }} onClick={handleCopyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
+          {/* Divider */}
+          <div style={{ width: '1px', background: 'var(--border)', flexShrink: 0 }} />
+
+          {/* Audience link + actions */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '0 10px', minWidth: 0 }}>
+            <a href={queueUrl} target="_blank" rel="noopener noreferrer"
+              style={{ flex: 1, fontFamily: F, fontSize: '11px', color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {queueUrl}
+            </a>
+            <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0, padding: '6px 10px' }} onClick={() => setShowQR(true)}>QR</button>
+            <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0, padding: '6px 10px' }} onClick={handleCopyLink}>{copiedLink ? '✓' : 'Copy'}</button>
+          </div>
+        </div>
+
       </div>
 
       {/* Up next */}
