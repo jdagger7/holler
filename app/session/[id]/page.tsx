@@ -13,16 +13,15 @@ type Request = {
   status: 'pending' | 'accepted' | 'played' | 'rejected'
   reject_reason: string | null; created_at: string; tip_total: number
 }
-type Session = {
-  id: string; venue_name: string | null; started_at: string
-  ended_at: string | null; status: string; band_id: string
-}
+type Session = { id: string; venue_name: string | null; started_at: string; ended_at: string | null; status: string; band_id: string }
 
 const REJECT_REASONS = [
   { value: 'dont_know', label: "Don't know it" },
   { value: 'not_tonight', label: 'Not tonight' },
   { value: 'already_played', label: 'Already played it' },
 ]
+
+const F = "'Arvo', serif"
 
 export default function SessionPage() {
   const params = useParams()
@@ -39,6 +38,8 @@ export default function SessionPage() {
   const [showQR, setShowQR] = useState(false)
   const [bandSlug, setBandSlug] = useState('')
   const [copiedLink, setCopiedLink] = useState(false)
+  const [undoToast, setUndoToast] = useState<{ id: string; label: string; action: () => void } | null>(null)
+  const [undoTimer, setUndoTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://holler.live'
   const queueUrl = bandSlug ? `${appUrl}/${bandSlug}` : ''
@@ -52,9 +53,7 @@ export default function SessionPage() {
     if (data) {
       setRequests(data.map((r: any) => ({
         ...r,
-        tip_total: (r.tips ?? [])
-          .filter((t: any) => t.status === 'held' || t.status === 'captured')
-          .reduce((s: number, t: any) => s + t.amount_cents, 0),
+        tip_total: (r.tips ?? []).filter((t: any) => t.status === 'held' || t.status === 'captured').reduce((s: number, t: any) => s + t.amount_cents, 0),
       })))
     }
   }, [sessionId])
@@ -63,9 +62,7 @@ export default function SessionPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/signup'); return }
-      const { data: s } = await supabase
-        .from('sessions').select('id, venue_name, started_at, ended_at, status, band_id')
-        .eq('id', sessionId).single()
+      const { data: s } = await supabase.from('sessions').select('id, venue_name, started_at, ended_at, status, band_id').eq('id', sessionId).single()
       if (!s) { router.push('/dashboard'); return }
       setSession(s)
       const { data: b } = await supabase.from('bands').select('slug').eq('id', s.band_id).single()
@@ -85,21 +82,42 @@ export default function SessionPage() {
     return () => { supabase.removeChannel(ch) }
   }, [sessionId, session, fetchRequests])
 
+  function showUndo(label: string, undoFn: () => void) {
+    if (undoTimer) clearTimeout(undoTimer)
+    setUndoToast({ id: Date.now().toString(), label, action: undoFn })
+    const t = setTimeout(() => setUndoToast(null), 5000)
+    setUndoTimer(t)
+  }
+
   async function handleAccept(id: string) {
     await supabase.from('requests').update({ status: 'accepted' }).eq('id', id)
     fetchRequests()
+    showUndo('Accepted', async () => {
+      await supabase.from('requests').update({ status: 'pending' }).eq('id', id)
+      fetchRequests()
+    })
   }
 
   async function handlePlayed(id: string) {
     await supabase.from('requests').update({ status: 'played', played_at: new Date().toISOString() }).eq('id', id)
     fetch('/api/stripe/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ request_id: id }) }).catch(console.error)
     fetchRequests()
+    showUndo('Marked played', async () => {
+      await supabase.from('requests').update({ status: 'accepted', played_at: null }).eq('id', id)
+      // Note: can't un-capture Stripe — just a UI undo for accidents before payment processes
+      fetchRequests()
+    })
   }
 
   async function handleReject(id: string, reason: string) {
     await supabase.from('requests').update({ status: 'rejected', reject_reason: reason }).eq('id', id)
     fetch('/api/stripe/refund', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ request_id: id }) }).catch(console.error)
-    setRejectingId(null); fetchRequests()
+    setRejectingId(null)
+    fetchRequests()
+    showUndo('Passed', async () => {
+      await supabase.from('requests').update({ status: 'pending', reject_reason: null }).eq('id', id)
+      fetchRequests()
+    })
   }
 
   async function confirmEnd() {
@@ -131,51 +149,43 @@ export default function SessionPage() {
   if (session?.status === 'ended') {
     const played = requests.filter(r => r.status === 'played')
     const totalTips = requests.reduce((s, r) => s + r.tip_total, 0)
-
     return (
-      <main style={{ minHeight: '100vh', maxWidth: '680px', margin: '0 auto' }}>
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <NavWordmark size={30} />
-          <a href="/dashboard" className="btn-ghost" style={{ textDecoration: 'none', fontSize: '11px', width: 'auto' }}>Dashboard</a>
+      <main style={{ minHeight: '100vh' }}>
+        <div className="top-rail">
+          <NavWordmark size={28} />
+          <a href="/dashboard" className="btn-ghost" style={{ textDecoration: 'none', width: 'auto' }}>Dashboard</a>
         </div>
-
-        <div style={{ padding: '36px 20px', textAlign: 'center', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)' }}>
-          <p className="label" style={{ marginBottom: '10px' }}>Session ended</p>
-          <h2 style={{ fontSize: '26px', marginBottom: '6px' }}>{session.venue_name ?? 'No venue'}</h2>
-          <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '32px' }}>
+        <div style={{ padding: '28px 20px', textAlign: 'center', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)' }}>
+          <p className="label" style={{ marginBottom: '8px' }}>Session ended</p>
+          <h2 style={{ fontSize: '24px', marginBottom: '4px' }}>{session.venue_name ?? 'No venue'}</h2>
+          <p style={{ fontFamily: F, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '28px' }}>
             {new Date(session.started_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '56px', marginBottom: '32px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '48px', marginBottom: '28px' }}>
             <div>
-              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '56px', color: 'var(--accent)', lineHeight: 1 }}>{played.length}</p>
-              <p className="label" style={{ marginTop: '4px' }}>Played</p>
+              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '52px', color: 'var(--accent)', lineHeight: 1 }}>{played.length}</p>
+              <p className="label">Played</p>
             </div>
             {totalTips > 0 && (
               <div>
-                <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '56px', color: 'var(--accent)', lineHeight: 1 }}>${(totalTips / 100).toFixed(0)}</p>
-                <p className="label" style={{ marginTop: '4px' }}>In tips</p>
+                <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '52px', color: 'var(--accent)', lineHeight: 1 }}>${(totalTips / 100).toFixed(0)}</p>
+                <p className="label">In tips</p>
               </div>
             )}
           </div>
-
-          <button onClick={handleRevive} className="btn-ghost" style={{ fontSize: '11px', opacity: reviving ? 0.5 : 1, width: 'auto' }} disabled={reviving}>
-            {reviving ? 'Reopening...' : 'Reopen this session'}
+          <button onClick={handleRevive} className="btn-ghost" style={{ width: 'auto', opacity: reviving ? 0.5 : 1 }} disabled={reviving}>
+            {reviving ? 'Reopening...' : 'Reopen session'}
           </button>
         </div>
-
         {played.length > 0 && (
           <div>
-            <div className="section-header">
-              <span className="label">Played tonight</span>
-              <span className="label">{played.length}</span>
-            </div>
+            <div className="section-header"><span className="label">Played tonight</span><span className="label">{played.length}</span></div>
             {played.map(req => (
               <div key={req.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-raised)' }}>
                 {req.spotify_album_art_url && <img src={req.spotify_album_art_url} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0 }} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: '15px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.title}</p>
-                  <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{req.artist}</p>
+                  <p style={{ fontFamily: F, fontSize: '15px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.title}</p>
+                  <p style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-muted)' }}>{req.artist}</p>
                 </div>
                 {req.tip_total > 0 && <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '20px', color: 'var(--success)', flexShrink: 0 }}>${(req.tip_total / 100).toFixed(0)}</p>}
               </div>
@@ -187,18 +197,18 @@ export default function SessionPage() {
   }
 
   // ── ACTIVE ─────────────────────────────────────────
-  const pending  = requests.filter(r => r.status === 'pending')
+  const pending = requests.filter(r => r.status === 'pending')
   const accepted = requests.filter(r => r.status === 'accepted')
-  const played   = requests.filter(r => r.status === 'played')
+  const played = requests.filter(r => r.status === 'played')
   const rejected = requests.filter(r => r.status === 'rejected')
+  const startTime = session ? new Date(session.started_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''
 
   return (
-    <main style={{ minHeight: '100vh', maxWidth: '680px', margin: '0 auto' }}>
-
+    <main style={{ minHeight: '100vh' }}>
       {showEndModal && (
         <Modal title="End session" onClose={() => setShowEndModal(false)}>
           <h2 style={{ fontSize: '22px', marginBottom: '12px' }}>Call it a night?</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.7', marginBottom: '24px' }}>
+          <p style={{ fontFamily: F, color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.7', marginBottom: '24px' }}>
             This closes the session and refunds any pending tips.
           </p>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -209,34 +219,75 @@ export default function SessionPage() {
           </div>
         </Modal>
       )}
-
       {showQR && <QRModal url={queueUrl} bandName={session?.venue_name ?? bandSlug} onClose={() => setShowQR(false)} />}
 
-      {/* Header */}
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-        <NavWordmark size={30} />
+      {/* Undo toast */}
+      {undoToast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--bg-card)', border: '1px solid var(--border-warm)',
+          padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '16px',
+          zIndex: 100, boxShadow: '0 4px 20px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
+        }}>
+          <p style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-muted)' }}>{undoToast.label}</p>
+          <button onClick={() => { undoToast.action(); setUndoToast(null) }}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', fontFamily: F, fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+            Undo
+          </button>
+        </div>
+      )}
+
+      {/* Top rail */}
+      <div className="top-rail">
+        <NavWordmark size={28} />
         <button onClick={() => setShowEndModal(true)} className="btn-ghost"
-          style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '11px', whiteSpace: 'nowrap', width: 'auto' }}>
+          style={{ color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '11px', width: 'auto' }}>
           End session
         </button>
       </div>
 
-      {/* Venue + time */}
-      <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <p style={{ fontSize: '14px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-          {session?.venue_name && <><span style={{ color: 'var(--text)', fontWeight: 600 }}>{session.venue_name}</span> · </>}
-          Started {session ? new Date(session.started_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''}
-        </p>
+      {/* Session header — dressed up */}
+      <div style={{ background: 'var(--bg-card)', borderBottom: '2px solid var(--border-warm)', padding: '16px 16px 0' }}>
+        {/* Venue + time */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <div>
+            <h2 style={{ fontFamily: "'Libre Baskerville', serif", fontSize: '20px', fontWeight: 700, marginBottom: '2px' }}>
+              {session?.venue_name ?? 'No venue set'}
+            </h2>
+            <p style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-muted)' }}>
+              Started {startTime} · {new Date(session?.started_at ?? '').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </p>
+          </div>
+          {/* Live indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--accent-pale)', border: '1px solid var(--accent-dim)', padding: '4px 10px', flexShrink: 0 }}>
+            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--danger)', boxShadow: '0 0 6px var(--danger)' }} />
+            <span style={{ fontFamily: F, fontSize: '10px', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--accent)' }}>Live</span>
+          </div>
+        </div>
+
+        {/* Stat row */}
+        <div style={{ display: 'flex', gap: '0', borderTop: '1px solid var(--border)', marginLeft: '-16px', marginRight: '-16px' }}>
+          {[
+            { label: 'Requests', value: pending.length + accepted.length },
+            { label: 'Up next', value: accepted.length },
+            { label: 'Played', value: played.length },
+          ].map((stat, i) => (
+            <div key={stat.label} style={{ flex: 1, padding: '10px 12px', textAlign: 'center', borderLeft: i > 0 ? '1px solid var(--border)' : 'none' }}>
+              <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '26px', color: stat.value > 0 ? 'var(--accent)' : 'var(--text-dim)', lineHeight: 1 }}>{stat.value}</p>
+              <p className="label" style={{ fontSize: '9px', marginTop: '1px' }}>{stat.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Audience link bar */}
-      <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border-warm)', background: 'var(--bg)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', gap: '8px' }}>
         <a href={queueUrl} target="_blank" rel="noopener noreferrer"
-          style={{ flex: 1, fontSize: '13px', color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          style={{ flex: 1, fontFamily: F, fontSize: '12px', color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {queueUrl}
         </a>
-        <button className="btn-ghost" style={{ fontSize: '11px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0 }} onClick={() => setShowQR(true)}>QR code</button>
-        <button className="btn-ghost" style={{ fontSize: '11px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0 }} onClick={handleCopyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
+        <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0 }} onClick={() => setShowQR(true)}>QR</button>
+        <button className="btn-ghost" style={{ fontSize: '10px', whiteSpace: 'nowrap', width: 'auto', flexShrink: 0 }} onClick={handleCopyLink}>{copiedLink ? 'Copied' : 'Copy'}</button>
       </div>
 
       {/* Up next */}
@@ -265,7 +316,7 @@ export default function SessionPage() {
           <span className="label">{pending.length}</span>
         </div>
         {pending.length === 0 ? (
-          <p style={{ padding: '28px 16px', color: 'var(--text-muted)', fontSize: '15px' }}>No requests yet.</p>
+          <p style={{ padding: '24px 16px', fontFamily: F, color: 'var(--text-muted)', fontSize: '14px' }}>No requests yet.</p>
         ) : (
           pending.map(req => (
             <BandRow key={req.id} req={req} rejectingId={rejectingId}
@@ -281,16 +332,13 @@ export default function SessionPage() {
       {/* Played */}
       {played.length > 0 && (
         <div>
-          <div className="section-header">
-            <span className="label">Played</span>
-            <span className="label">{played.length}</span>
-          </div>
+          <div className="section-header"><span className="label">Played ({played.length})</span></div>
           {played.map(req => (
-            <div key={req.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--border)', opacity: 0.45, background: 'var(--bg-raised)' }}>
+            <div key={req.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--border)', opacity: 0.45 }}>
               {req.spotify_album_art_url && <img src={req.spotify_album_art_url} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover', flexShrink: 0 }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: '14px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.title}</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{req.artist}</p>
+                <p style={{ fontFamily: F, fontSize: '14px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.title}</p>
+                <p style={{ fontFamily: F, fontSize: '12px', color: 'var(--text-muted)' }}>{req.artist}</p>
               </div>
               {req.tip_total > 0 && <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '18px', color: 'var(--success)', flexShrink: 0 }}>${(req.tip_total / 100).toFixed(0)}</p>}
             </div>
@@ -301,17 +349,14 @@ export default function SessionPage() {
       {/* Passed */}
       {rejected.length > 0 && (
         <div>
-          <div className="section-header">
-            <span className="label">Passed</span>
-            <span className="label">{rejected.length}</span>
-          </div>
+          <div className="section-header"><span className="label">Passed ({rejected.length})</span></div>
           {rejected.map(req => (
-            <div key={req.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--border)', opacity: 0.3, background: 'var(--bg-raised)' }}>
+            <div key={req.id} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--border)', opacity: 0.3 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.title}</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{req.artist}</p>
+                <p style={{ fontFamily: F, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.title}</p>
+                <p style={{ fontFamily: F, fontSize: '12px', color: 'var(--text-muted)' }}>{req.artist}</p>
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', flexShrink: 0 }}>{REJECT_REASONS.find(r => r.value === req.reject_reason)?.label ?? 'Passed'}</p>
+              <p style={{ fontFamily: F, fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0 }}>{REJECT_REASONS.find(r => r.value === req.reject_reason)?.label ?? 'Passed'}</p>
             </div>
           ))}
         </div>
@@ -323,31 +368,27 @@ export default function SessionPage() {
 function BandRow({ req, onAccept, onPlayed, onRejectStart, rejectingId, onReject, onRejectCancel, highlight }: {
   req: Request; onAccept?: () => void; onPlayed?: () => void
   onRejectStart: () => void; rejectingId: string | null
-  onReject: (r: string) => void; onRejectCancel: () => void
-  highlight?: boolean
+  onReject: (r: string) => void; onRejectCancel: () => void; highlight?: boolean
 }) {
   const isRejecting = rejectingId === req.id
   const isAccepted = req.status === 'accepted'
+  const F = "'Arvo', serif"
 
   return (
-    <div style={{
-      borderBottom: '1px solid var(--border)',
-      background: highlight ? 'var(--bg-card)' : 'var(--bg-raised)',
-      borderLeft: highlight ? '3px solid var(--accent)' : '3px solid transparent',
-    }}>
+    <div style={{ borderBottom: '1px solid var(--border)', background: highlight ? 'var(--bg-card)' : 'var(--bg-raised)', borderLeft: highlight ? '4px solid var(--accent)' : '4px solid transparent' }}>
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '13px 16px' }}>
         {req.spotify_album_art_url
           ? <img src={req.spotify_album_art_url} alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }} />
           : <div style={{ width: '48px', height: '48px', background: 'var(--bg)', flexShrink: 0, border: '1px solid var(--border-warm)' }} />
         }
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: '17px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{req.title}</p>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.artist}</p>
+          <p style={{ fontFamily: F, fontSize: '17px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{req.title}</p>
+          <p style={{ fontFamily: F, fontSize: '13px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.artist}</p>
         </div>
         {req.tip_total > 0 && (
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <p style={{ fontFamily: "'Teko', sans-serif", fontSize: '24px', color: 'var(--accent)', lineHeight: 1 }}>${(req.tip_total / 100).toFixed(0)}</p>
-            <p style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>tips</p>
+            <p style={{ fontFamily: F, fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>tips</p>
           </div>
         )}
       </div>
@@ -358,7 +399,7 @@ function BandRow({ req, onAccept, onPlayed, onRejectStart, rejectingId, onReject
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
             {REJECT_REASONS.map(r => (
               <button key={r.value} onClick={() => onReject(r.value)}
-                style={{ background: 'var(--bg)', border: '1px solid var(--border-warm)', color: 'var(--text)', fontFamily: "'Arvo', serif", fontSize: '15px', padding: '12px 14px', textAlign: 'left', cursor: 'pointer', minHeight: '48px' }}>
+                style={{ background: 'var(--bg)', border: '1px solid var(--border-warm)', color: 'var(--text)', fontFamily: F, fontSize: '15px', padding: '12px 14px', textAlign: 'left', cursor: 'pointer', minHeight: '48px' }}>
                 {r.label}
               </button>
             ))}

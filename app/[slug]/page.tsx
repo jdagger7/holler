@@ -9,6 +9,7 @@ import HollerLogo from '@/components/HollerLogo'
 import ContactPrompt from '@/components/ContactPrompt'
 import { useRequesterContact } from '@/hooks/useRequesterContact'
 import TipModal from '@/components/TipModal'
+import NavWordmark from '@/components/NavWordmark'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 const F = "'Arvo', serif"
@@ -23,14 +24,15 @@ type Step = 'queue' | 'search' | 'confirm' | 'payment' | 'boost' | 'submitted'
 // Each character gets a tiny random rotation + spacing nudge, seeded by position
 function MarqueeText({ text, fontSize, color }: { text: string; fontSize: number; color: string }) {
   const chars = text.split('')
+  // Scale jitter proportionally to font size — big text can wiggle a little, small text barely at all
+  const jitterScale = Math.min(fontSize / 40, 1)
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'nowrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'nowrap', overflow: 'hidden', width: '100%' }}>
       {chars.map((ch, i) => {
-        // Very subtle deterministic jitter — just enough to feel hand-placed
         const seed = (i * 13 + ch.charCodeAt(0) * 7) % 100
-        const rot = ((seed % 9) - 4) * 0.12    // ±0.48° max
-        const nudgeY = ((seed * 3) % 5) * 0.3 - 0.6  // ±0.6px vertical only
-        const extraSpace = (seed % 3) - 1       // -1, 0, or +1px
+        const rot = ((seed % 9) - 4) * 0.12 * jitterScale   // ±0.48° at 40px, ±0.12° at 10px
+        const nudgeY = (((seed * 3) % 5) * 0.3 - 0.6) * jitterScale  // scaled vertical nudge
+        const extraSpace = Math.round((seed % 3 - 1) * jitterScale)   // 0 or ±1px
         return (
           <span
             key={i}
@@ -39,8 +41,9 @@ function MarqueeText({ text, fontSize, color }: { text: string; fontSize: number
               fontSize: `${fontSize}px`,
               color,
               transform: `rotate(${rot}deg) translateY(${nudgeY}px)`,
-              marginRight: ch === ' ' ? `${Math.round(fontSize * 0.25)}px` : `${extraSpace}px`,
+              marginRight: ch === ' ' ? `${Math.round(fontSize * 0.22)}px` : `${Math.max(0, extraSpace)}px`,
               display: 'inline-block',
+              flexShrink: 0,
             }}
           >
             {ch === ' ' ? '\u00A0' : ch}
@@ -57,13 +60,21 @@ function MarqueeHeader({ bandName, venueName, startedAt, contactDisplay, onClear
 }) {
   const date = new Date(startedAt)
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()
-  const bulbCount = 26
-
-  // Band name always on one line — Teko is condensed enough
+  const bulbCount = 24
   const nameLine = bandName.toUpperCase()
+  // Scale font size down for longer names so they fit on one line
+  const nameFontSize = Math.max(24, Math.min(40, Math.floor(320 / Math.max(nameLine.length, 8))))
 
   return (
-    <div className="marquee-wrap">
+    <>
+      {/* Top rail — consistent across all pages */}
+      <div className="top-rail">
+        <NavWordmark size={28} />
+        <button onClick={onClear} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontFamily: "'Arvo', serif", fontSize: '12px', padding: 0 }}>
+          Not {contactDisplay}?
+        </button>
+      </div>
+      <div className="marquee-wrap">
       {/* Top bulb row */}
       <div className="marquee-bulbs">
         {Array.from({ length: bulbCount }).map((_, i) => (
@@ -75,7 +86,7 @@ function MarqueeHeader({ bandName, venueName, startedAt, contactDisplay, onClear
       <div className="marquee-panel">
         {/* Line 1: band name (first half) */}
         <div className="marquee-track">
-          <MarqueeText text={nameLine} fontSize={40} color="#1a1008" />
+          <MarqueeText text={nameLine} fontSize={nameFontSize} color="#1a1008" />
         </div>
         {/* Line 2: band name (second half) or venue */}
         {/* Line 3: venue */}
@@ -97,18 +108,8 @@ function MarqueeHeader({ bandName, venueName, startedAt, contactDisplay, onClear
         ))}
       </div>
 
-      {/* Info strip below marquee */}
-      <div className="marquee-info">
-        <div style={{ width: '60px' }} />
-        <div />
-        <button
-          onClick={onClear}
-          style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontFamily: F, fontSize: '11px', padding: '2px 0' }}
-        >
-          Not {contactDisplay}?
-        </button>
-      </div>
     </div>
+    </>
   )
 }
 

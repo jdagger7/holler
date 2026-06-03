@@ -35,10 +35,20 @@ html, body {
 
 h1, h2, h3 { font-family: 'Libre Baskerville', serif; line-height: 1.15; }
 
-.page-container { max-width: 720px; margin: 0 auto; min-height: 100vh; position: relative; }
+.page-container { max-width: 720px; margin: 0 auto; min-height: 100vh; position: relative; background: var(--bg); }
+
+/* Top nav rail — consistent across all pages */
+.top-rail {
+  padding: 10px 16px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border-warm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 
 .card { background: var(--bg-card); border: 1px solid var(--border-warm); padding: 20px; }
-
 .card-ornate {
   background: var(--bg-card); position: relative; padding: 32px;
   border: 1px solid var(--border-warm);
@@ -54,25 +64,21 @@ h1, h2, h3 { font-family: 'Libre Baskerville', serif; line-height: 1.15; }
   transform: translateX(-50%); background: var(--bg-card); color: var(--accent-dim);
   font-size: 8px; letter-spacing: 6px; padding: 0 8px; white-space: nowrap; font-family: serif;
 }
-.side-ornament {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  color: var(--accent-dim); font-size: 8px; line-height: 1;
-  writing-mode: vertical-rl; letter-spacing: 8px; background: var(--bg-card); padding: 8px 0; font-family: serif;
-}
-.side-ornament-left  { left: -5px; }
+.side-ornament { position: absolute; top: 50%; transform: translateY(-50%); color: var(--accent-dim); font-size: 8px; line-height: 1; writing-mode: vertical-rl; letter-spacing: 8px; background: var(--bg-card); padding: 8px 0; font-family: serif; }
+.side-ornament-left { left: -5px; }
 .side-ornament-right { right: -5px; }
 
 /* Marquee */
 .marquee-wrap { background: var(--marquee-bg); border-bottom: 3px solid var(--accent-dim); position: relative; }
-.marquee-bulbs { display: flex; justify-content: space-around; padding: 7px 10px 5px; background: var(--marquee-bg); }
-.marquee-bulb { width: 12px; height: 12px; border-radius: 50%; background: var(--marquee-bulb); box-shadow: 0 0 7px 3px rgba(245,208,96,0.55); flex-shrink: 0; }
+.marquee-bulbs { display: flex; justify-content: space-around; padding: 6px 8px 4px; }
+.marquee-bulb { width: 11px; height: 11px; border-radius: 50%; background: var(--marquee-bulb); box-shadow: 0 0 6px 2px rgba(245,208,96,0.5); flex-shrink: 0; }
 .marquee-bulb.dim { background: #2a2008; box-shadow: none; }
-.marquee-panel { background: #f0ead0; margin: 0 10px; border-left: 5px solid #8a6820; border-right: 5px solid #8a6820; padding: 0; overflow: hidden; }
-.marquee-track { position: relative; padding: 10px 16px 8px; display: flex; align-items: center; justify-content: center; min-height: 52px; }
+.marquee-panel { background: #f0ead0; margin: 0 8px; border-left: 4px solid #8a6820; border-right: 4px solid #8a6820; overflow: hidden; }
+.marquee-track { padding: 7px 14px 6px; display: flex; align-items: center; justify-content: center; min-height: 44px; overflow: hidden; }
 .marquee-track + .marquee-track { border-top: 2px solid #c8b888; }
-.marquee-letter { font-family: 'Teko', sans-serif; font-weight: 600; color: #1a1008; display: inline-block; line-height: 1; }
-.marquee-info { background: var(--marquee-bg); padding: 6px 16px; display: flex; align-items: center; justify-content: flex-end; border-top: 1px solid #2a1e08; }
-.marquee-bulbs-bottom { display: flex; justify-content: space-around; padding: 5px 10px 7px; }
+.marquee-letter { font-family: 'Teko', sans-serif; font-weight: 600; display: inline-block; line-height: 1; }
+.marquee-info { background: var(--marquee-bg); padding: 5px 14px; display: flex; align-items: center; justify-content: space-between; }
+.marquee-bulbs-bottom { display: flex; justify-content: space-around; padding: 4px 8px 6px; }
 
 /* Section headers */
 .section-header { padding: 10px 16px; background: var(--bg-raised); border-top: 1px solid var(--border-warm); border-bottom: 1px solid var(--border-warm); display: flex; align-items: center; justify-content: space-between; }
@@ -105,8 +111,8 @@ h1, h2, h3 { font-family: 'Libre Baskerville', serif; line-height: 1.15; }
 .pac-icon, .pac-logo::after { display: none !important; }
 
 @media (min-width: 760px) {
+  .paisley-bg { display: block !important; }
   .page-container {
     box-shadow: 0 0 0 1px rgba(107,78,32,0.3), 0 0 60px rgba(0,0,0,0.6);
-    background: var(--bg);
   }
 }
